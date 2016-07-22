@@ -41,13 +41,14 @@ namespace {
     // in order to store information about the scope
     struct VarIdscopeInfo {
         VarIdscopeInfo()
-            :isExecutable(false), startVarid(0) {
+            :isExecutable(false), isStructInit(false), startVarid(0) {
         }
-        VarIdscopeInfo(bool _isExecutable, unsigned int _startVarid)
-            :isExecutable(_isExecutable), startVarid(_startVarid) {
+        VarIdscopeInfo(bool _isExecutable, bool _isStructInit, unsigned int _startVarid)
+            :isExecutable(_isExecutable), isStructInit(_isStructInit), startVarid(_startVarid) {
         }
 
         const bool isExecutable;
+        const bool isStructInit;
         const unsigned int startVarid;
     };
 }
@@ -78,6 +79,11 @@ const Token * Tokenizer::isFunctionHead(const Token *tok, const std::string &end
             tok = tok->linkAt(1)->next();
         if (Token::Match(tok, "%name% (") && tok->isUpperCaseName())
             tok = tok->linkAt(1)->next();
+        if (tok && tok->str() == ".") { // trailing return type
+            for (tok = tok->next(); tok && !Token::Match(tok, "[;{]"); tok = tok->next())
+                if (tok->link() && Token::Match(tok, "<|[|("))
+                    tok = tok->link();
+        }
         if (Token::Match(tok, "= 0|default|delete ;"))
             tok = tok->tokAt(2);
         return (tok && endsWith.find(tok->str()) != std::string::npos) ? tok : nullptr;
@@ -2460,6 +2466,34 @@ static void setVarIdStructMembers(Token **tok1,
                                   unsigned int *_varId)
 {
     Token *tok = *tok1;
+
+    if (Token::Match(tok, "%name% = { . %name% =")) {
+        const unsigned int struct_varid = tok->varId();
+        if (struct_varid == 0)
+            return;
+
+        std::map<std::string, unsigned int>& members = structMembers[struct_varid];
+
+        tok = tok->tokAt(3);
+        while (tok->str() != "}") {
+            if (Token::Match(tok, "{|[|("))
+                tok = tok->link();
+            if (Token::Match(tok->previous(), "[,{] . %name% =")) {
+                tok = tok->next();
+                const std::map<std::string, unsigned int>::iterator it = members.find(tok->str());
+                if (it == members.end()) {
+                    members[tok->str()] = ++(*_varId);
+                    tok->varId(*_varId);
+                } else {
+                    tok->varId(it->second);
+                }
+            }
+            tok = tok->next();
+        }
+
+        return;
+    }
+
     while (Token::Match(tok->next(), ". %name% !!(")) {
         const unsigned int struct_varid = tok->varId();
         tok = tok->tokAt(2);
@@ -2634,7 +2668,7 @@ void Tokenizer::setVarIdPass1()
                 variableId.swap(scopeInfo.top());
                 scopeInfo.pop();
             } else if (tok->str() == "{")
-                scopeStack.push(VarIdscopeInfo(true, _varId));
+                scopeStack.push(VarIdscopeInfo(true, scopeStack.top().isStructInit || tok->strAt(-1) == "=", _varId));
         } else if (!initlist && tok->str()=="(") {
             const Token * newFunctionDeclEnd = nullptr;
             if (!scopeStack.top().isExecutable)
@@ -2664,10 +2698,11 @@ void Tokenizer::setVarIdPass1()
                     } else {
                         isExecutable = ((scopeStack.top().isExecutable || initlist || tok->strAt(-1) == "else") &&
                                         !isClassStructUnionEnumStart(tok));
-                        scopeInfo.push(variableId);
+                        if (!(scopeStack.top().isStructInit || tok->strAt(-1) == "="))
+                            scopeInfo.push(variableId);
                     }
                     initlist = false;
-                    scopeStack.push(VarIdscopeInfo(isExecutable, _varId));
+                    scopeStack.push(VarIdscopeInfo(isExecutable, scopeStack.top().isStructInit || tok->strAt(-1) == "=", _varId));
                 } else { /* if (tok->str() == "}") */
                     bool isNamespace = false;
                     for (const Token *tok1 = tok->link()->previous(); tok1 && tok1->isName(); tok1 = tok1->previous())
@@ -2680,11 +2715,13 @@ void Tokenizer::setVarIdPass1()
                                                  structMembers);
                     }
 
-                    if (scopeInfo.empty()) {
-                        variableId.clear();
-                    } else {
-                        variableId.swap(scopeInfo.top());
-                        scopeInfo.pop();
+                    if (!scopeStack.top().isStructInit) {
+                        if (scopeInfo.empty()) {
+                            variableId.clear();
+                        } else {
+                            variableId.swap(scopeInfo.top());
+                            scopeInfo.pop();
+                        }
                     }
 
                     scopeStack.pop();
@@ -2695,11 +2732,13 @@ void Tokenizer::setVarIdPass1()
             }
         }
 
-        if (tok == list.front() || Token::Match(tok, "[;{}]") ||
-            (tok->str() == "(" && isFunctionHead(tok,"{")) ||
-            (tok->str() == "(" && !scopeStack.top().isExecutable && isFunctionHead(tok,";:")) ||
-            (tok->str() == "," && !scopeStack.top().isExecutable) ||
-            (tok->isName() && tok->str().at(tok->str().length()-1U) == ':')) {
+        if (!scopeStack.top().isStructInit &&
+            (tok == list.front() ||
+             Token::Match(tok, "[;{}]") ||
+             (tok->str() == "(" && isFunctionHead(tok,"{")) ||
+             (tok->str() == "(" && !scopeStack.top().isExecutable && isFunctionHead(tok,";:")) ||
+             (tok->str() == "," && !scopeStack.top().isExecutable) ||
+             (tok->isName() && tok->str().at(tok->str().length()-1U) == ':'))) {
 
             // No variable declarations in sizeof
             if (Token::simpleMatch(tok->previous(), "sizeof (")) {
@@ -3529,6 +3568,11 @@ bool Tokenizer::simplifyTokenList1(const char FileName[])
     } else {
         simplifyTypedef();
     }
+
+    // Add parentheses to ternary operator where necessary
+    // TODO: this is only necessary if one typedef simplification had a comma and was used within ?:
+    // If typedef handling is refactored and moved to symboldatabase someday we can remove this
+    prepareTernaryOpForAST();
 
     for (Token* tok = list.front(); tok;) {
         if (Token::Match(tok, "union|struct|class union|struct|class"))
@@ -4622,7 +4666,7 @@ void Tokenizer::simplifyCompoundAssignment()
                 // Only enclose rhs in parentheses if there is some operator
                 bool someOperator = false;
                 for (Token *tok2 = tok->next(); tok2; tok2 = tok2->next()) {
-                    if (tok2->str() == "(")
+                    if (tok2->link() && Token::Match(tok2, "{|[|("))
                         tok2 = tok2->link();
 
                     if (Token::Match(tok2->next(), "[;)]")) {
@@ -4829,7 +4873,12 @@ bool Tokenizer::simplifyConditions()
 bool Tokenizer::simplifyConstTernaryOp()
 {
     bool ret = false;
+    const Token *templateParameterEnd = 0; // The end of the current template parameter list, if any
     for (Token *tok = list.front(); tok; tok = tok->next()) {
+        if (tok->str() == "<" && TemplateSimplifier::templateParameters(tok))
+            templateParameterEnd = tok->findClosingBracket();
+        if (tok == templateParameterEnd)
+            templateParameterEnd = 0; // End of the current template parameter list
         if (tok->str() != "?")
             continue;
 
@@ -4839,20 +4888,18 @@ bool Tokenizer::simplifyConstTernaryOp()
 
         const int offset = (tok->previous()->str() == ")") ? 2 : 1;
 
-        bool inTemplateParameter = false;
         if (tok->strAt(-2*offset) == "<") {
             if (isC() || !TemplateSimplifier::templateParameters(tok->tokAt(-2*offset)))
                 continue; // '<' is less than; the condition is not a constant
-            inTemplateParameter = true;
         }
 
         // Find the token ":" then go to the next token
-        Token *semicolon = skipTernaryOp(tok);
-        if (!semicolon || semicolon->previous()->str() != ":" || !semicolon->next())
+        Token *colon = skipTernaryOp(tok);
+        if (!colon || colon->previous()->str() != ":" || !colon->next())
             continue;
 
         //handle the GNU extension: "x ? : y" <-> "x ? x : y"
-        if (semicolon->previous() == tok->next())
+        if (colon->previous() == tok->next())
             tok->insertToken(tok->strAt(-offset));
 
         // go back before the condition, if possible
@@ -4866,8 +4913,8 @@ bool Tokenizer::simplifyConstTernaryOp()
         }
 
         if (Token::Match(tok->next(), "false|0")) {
-            // Use code after semicolon, remove code before it.
-            Token::eraseTokens(tok, semicolon);
+            // Use code after colon, remove code before it.
+            Token::eraseTokens(tok, colon);
 
             tok = tok->next();
             ret = true;
@@ -4879,7 +4926,7 @@ bool Tokenizer::simplifyConstTernaryOp()
             tok->deleteNext(2);
 
             unsigned int ternaryOplevel = 0;
-            for (const Token *endTok = semicolon; endTok; endTok = endTok->next()) {
+            for (const Token *endTok = colon; endTok; endTok = endTok->next()) {
                 if (Token::Match(endTok, "(|[|{")) {
                     endTok = endTok->link();
                 }
@@ -4889,10 +4936,10 @@ bool Tokenizer::simplifyConstTernaryOp()
                 else if (Token::Match(endTok, ")|}|]|;|,|:|>")) {
                     if (endTok->str() == ":" && ternaryOplevel)
                         --ternaryOplevel;
-                    else if (endTok->str() == ">" && !inTemplateParameter)
+                    else if (endTok->str() == ">" && !templateParameterEnd)
                         ;
                     else {
-                        Token::eraseTokens(semicolon->tokAt(-2), endTok);
+                        Token::eraseTokens(colon->tokAt(-2), endTok);
                         ret = true;
                         break;
                     }
@@ -5984,18 +6031,16 @@ void Tokenizer::simplifyVariableMultipleAssign()
 }
 
 // Binary operators simplification map
-namespace {
-    const std::map<std::string, std::string> cAlternativeTokens = make_container< std::map<std::string, std::string> >()
-            << std::make_pair("and", "&&")
-            << std::make_pair("and_eq", "&=")
-            << std::make_pair("bitand", "&")
-            << std::make_pair("bitor", "|")
-            << std::make_pair("not_eq", "!=")
-            << std::make_pair("or", "||")
-            << std::make_pair("or_eq", "|=")
-            << std::make_pair("xor", "^")
-            << std::make_pair("xor_eq", "^=") ;
-}
+static const std::map<std::string, std::string> cAlternativeTokens = make_container< std::map<std::string, std::string> >()
+        << std::make_pair("and", "&&")
+        << std::make_pair("and_eq", "&=")
+        << std::make_pair("bitand", "&")
+        << std::make_pair("bitor", "|")
+        << std::make_pair("not_eq", "!=")
+        << std::make_pair("or", "||")
+        << std::make_pair("or_eq", "|=")
+        << std::make_pair("xor", "^")
+        << std::make_pair("xor_eq", "^=") ;
 
 // Simplify the C alternative tokens:
 //  and      =>     &&
@@ -6011,7 +6056,7 @@ namespace {
 //  xor_eq   =>     ^=
 bool Tokenizer::simplifyCAlternativeTokens()
 {
-    /* For C code: executable scope level */
+    /* executable scope level */
     unsigned int executableScopeLevel = 0;
 
     bool ret = false;
@@ -6033,17 +6078,16 @@ bool Tokenizer::simplifyCAlternativeTokens()
 
         const std::map<std::string, std::string>::const_iterator cOpIt = cAlternativeTokens.find(tok->str());
         if (cOpIt != cAlternativeTokens.end()) {
-            if (isC() && !Token::Match(tok->previous(), "%name%|%num%|%char%|)|]|> %name% %name%|%num%|%char%|%op%|("))
+            if (!Token::Match(tok->previous(), "%name%|%num%|%char%|)|]|> %name% %name%|%num%|%char%|%op%|("))
                 continue;
             tok->str(cOpIt->second);
             ret = true;
         } else if (Token::Match(tok, "not|compl")) {
             // Don't simplify 'not p;' (in case 'not' is a type)
-            if (isC() && (!Token::Match(tok->next(), "%name%|%op%|(") ||
-                          Token::Match(tok->previous(), "[;{}]") ||
-                          (executableScopeLevel == 0U && tok->strAt(-1) == "(")))
+            if (!Token::Match(tok->next(), "%name%|(") ||
+                Token::Match(tok->previous(), "[;{}]") ||
+                (executableScopeLevel == 0U && tok->strAt(-1) == "("))
                 continue;
-
             tok->str((tok->str() == "not") ? "!" : "~");
             ret = true;
         }
@@ -8429,8 +8473,10 @@ void Tokenizer::simplifyStructDecl()
 
 void Tokenizer::simplifyCallingConvention()
 {
+    bool windows = _settings->isWindowsPlatform();
+
     for (Token *tok = list.front(); tok; tok = tok->next()) {
-        while (Token::Match(tok, "__cdecl|__stdcall|__fastcall|__thiscall|__clrcall|__syscall|__pascal|__fortran|__far|__near|WINAPI|APIENTRY|CALLBACK")) {
+        while (Token::Match(tok, "__cdecl|__stdcall|__fastcall|__thiscall|__clrcall|__syscall|__pascal|__fortran|__far|__near") || (windows && Token::Match(tok, "WINAPI|APIENTRY|CALLBACK"))) {
             tok->deleteThis();
         }
     }
@@ -8858,7 +8904,10 @@ void Tokenizer::simplifyBitfields()
         }
         Token *last = nullptr;
 
-        if (Token::Match(tok, ";|{|}|public:|protected:|private: const| %type% %name% :") &&
+        if (!Token::Match(tok, ";|{|}|public:|protected:|private:"))
+            continue;
+
+        if (Token::Match(tok->next(), "const| %type% %name% :") &&
             !Token::Match(tok->next(), "case|public|protected|private|class|struct") &&
             !Token::simpleMatch(tok->tokAt(2), "default :")) {
             Token *tok1 = (tok->next()->str() == "const") ? tok->tokAt(3) : tok->tokAt(2);
@@ -8873,7 +8922,7 @@ void Tokenizer::simplifyBitfields()
 
                 last = tok1->next();
             }
-        } else if (Token::Match(tok, ";|{|}|public:|protected:|private: const| %type% : %any% ;") &&
+        } else if (Token::Match(tok->next(), "const| %type% : %any% ;") &&
                    tok->next()->str() != "default") {
             const int offset = (tok->next()->str() == "const") ? 1 : 0;
 
@@ -8993,11 +9042,14 @@ void Tokenizer::simplifyMicrosoftMemoryFunctions()
         return;
 
     for (Token *tok = list.front(); tok; tok = tok->next()) {
-        if (Token::Match(tok, "CopyMemory|RtlCopyMemory|RtlCopyBytes (")) {
+        if (tok->strAt(1) != "(")
+            continue;
+
+        if (Token::Match(tok, "CopyMemory|RtlCopyMemory|RtlCopyBytes")) {
             tok->str("memcpy");
-        } else if (Token::Match(tok, "MoveMemory|RtlMoveMemory (")) {
+        } else if (Token::Match(tok, "MoveMemory|RtlMoveMemory")) {
             tok->str("memmove");
-        } else if (Token::Match(tok, "FillMemory|RtlFillMemory|RtlFillBytes (")) {
+        } else if (Token::Match(tok, "FillMemory|RtlFillMemory|RtlFillBytes")) {
             // FillMemory(dst, len, val) -> memset(dst, val, len)
             tok->str("memset");
 
@@ -9010,7 +9062,7 @@ void Tokenizer::simplifyMicrosoftMemoryFunctions()
                 if (tok2)
                     Token::move(tok1->previous(), tok2->tokAt(-2), tok->next()->link()->previous()); // Swap third with second argument
             }
-        } else if (Token::Match(tok, "ZeroMemory|RtlZeroMemory|RtlZeroBytes|RtlSecureZeroMemory (")) {
+        } else if (Token::Match(tok, "ZeroMemory|RtlZeroMemory|RtlZeroBytes|RtlSecureZeroMemory")) {
             // ZeroMemory(dst, len) -> memset(dst, 0, len)
             tok->str("memset");
 
@@ -9024,7 +9076,7 @@ void Tokenizer::simplifyMicrosoftMemoryFunctions()
                 tok1 = tok1->next();
                 tok1->insertToken(",");
             }
-        } else if (Token::simpleMatch(tok, "RtlCompareMemory (")) {
+        } else if (Token::simpleMatch(tok, "RtlCompareMemory")) {
             // RtlCompareMemory(src1, src2, len) -> memcmp(src1, src2, len)
             tok->str("memcmp");
             // For the record, when memcmp returns 0, both strings are equal.
@@ -9038,48 +9090,43 @@ void Tokenizer::simplifyMicrosoftMemoryFunctions()
 
 namespace {
     struct triplet {
-        triplet(const char* t, const char* m, const char* u) : tchar(t), mbcs(m), unicode(u) {}
-        explicit triplet(const std::string& t) : tchar(t) {}
-        bool operator <(const triplet& rhs) const {
-            return tchar < rhs.tchar;
-        }
-        std::string tchar, mbcs, unicode;
+        triplet(const char* m, const char* u) :  mbcs(m), unicode(u) {}
+        std::string mbcs, unicode;
     };
 
-    const std::set<triplet> apis = make_container< std::set<triplet> >() <<
-                                   triplet("_topen", "open", "_wopen") <<
-                                   triplet("_tsopen_s", "_sopen_s", "_wsopen_s") <<
-                                   triplet("_tfopen", "fopen", "_wfopen") <<
-                                   triplet("_tfopen_s", "fopen_s", "_wfopen_s") <<
-                                   triplet("_tfreopen", "freopen", "_wfreopen") <<
-                                   triplet("_tfreopen_s", "freopen_s", "_wfreopen_s") <<
-                                   triplet("_tcscat", "strcat", "wcscat") <<
-                                   triplet("_tcschr", "strchr", "wcschr") <<
-                                   triplet("_tcscmp", "strcmp", "wcscmp") <<
-                                   triplet("_tcsdup", "strdup", "wcsdup") <<
-                                   triplet("_tcscpy", "strcpy", "wcscpy") <<
-                                   triplet("_tcslen", "strlen", "wcslen") <<
-                                   triplet("_tcsncat", "strncat", "wcsncat") <<
-                                   triplet("_tcsncpy", "strncpy", "wcsncpy") <<
-                                   triplet("_tcsnlen", "strnlen", "wcsnlen") <<
-                                   triplet("_tcsrchr", "strrchr", "wcsrchr") <<
-                                   triplet("_tcsstr", "strstr", "wcsstr") <<
-                                   triplet("_tcstok", "strtok", "wcstok") <<
-                                   triplet("_ftprintf", "fprintf", "fwprintf") <<
-                                   triplet("_tprintf", "printf", "wprintf") <<
-                                   triplet("_stprintf", "sprintf", "swprintf") <<
-                                   triplet("_sntprintf", "_snprintf", "_snwprintf") <<
-                                   triplet("_ftscanf", "fscanf", "fwscanf") <<
-                                   triplet("_tscanf", "scanf", "wscanf") <<
-                                   triplet("_stscanf", "sscanf", "swscanf") <<
-                                   triplet("_ftprintf_s", "fprintf_s", "fwprintf_s") <<
-                                   triplet("_tprintf_s", "printf_s", "wprintf_s") <<
-                                   triplet("_stprintf_s", "sprintf_s", "swprintf_s") <<
-                                   triplet("_sntprintf_s", "_snprintf_s", "_snwprintf_s") <<
-                                   triplet("_ftscanf_s", "fscanf_s", "fwscanf_s") <<
-                                   triplet("_tscanf_s", "scanf_s", "wscanf_s") <<
-                                   triplet("_stscanf_s", "sscanf_s", "swscanf_s")
-                                   ;
+    const std::map<std::string, triplet> apis = make_container< std::map<std::string, triplet> >() <<
+            std::make_pair("_topen", triplet("open", "_wopen")) <<
+            std::make_pair("_tsopen_s", triplet("_sopen_s", "_wsopen_s")) <<
+            std::make_pair("_tfopen", triplet("fopen", "_wfopen")) <<
+            std::make_pair("_tfopen_s", triplet("fopen_s", "_wfopen_s")) <<
+            std::make_pair("_tfreopen", triplet("freopen", "_wfreopen")) <<
+            std::make_pair("_tfreopen_s", triplet("freopen_s", "_wfreopen_s")) <<
+            std::make_pair("_tcscat", triplet("strcat", "wcscat")) <<
+            std::make_pair("_tcschr", triplet("strchr", "wcschr")) <<
+            std::make_pair("_tcscmp", triplet("strcmp", "wcscmp")) <<
+            std::make_pair("_tcsdup", triplet("strdup", "wcsdup")) <<
+            std::make_pair("_tcscpy", triplet("strcpy", "wcscpy")) <<
+            std::make_pair("_tcslen", triplet("strlen", "wcslen")) <<
+            std::make_pair("_tcsncat", triplet("strncat", "wcsncat")) <<
+            std::make_pair("_tcsncpy", triplet("strncpy", "wcsncpy")) <<
+            std::make_pair("_tcsnlen", triplet("strnlen", "wcsnlen")) <<
+            std::make_pair("_tcsrchr", triplet("strrchr", "wcsrchr")) <<
+            std::make_pair("_tcsstr", triplet("strstr", "wcsstr")) <<
+            std::make_pair("_tcstok", triplet("strtok", "wcstok")) <<
+            std::make_pair("_ftprintf", triplet("fprintf", "fwprintf")) <<
+            std::make_pair("_tprintf", triplet("printf", "wprintf")) <<
+            std::make_pair("_stprintf", triplet("sprintf", "swprintf")) <<
+            std::make_pair("_sntprintf", triplet("_snprintf", "_snwprintf")) <<
+            std::make_pair("_ftscanf", triplet("fscanf", "fwscanf")) <<
+            std::make_pair("_tscanf", triplet("scanf", "wscanf")) <<
+            std::make_pair("_stscanf", triplet("sscanf", "swscanf")) <<
+            std::make_pair("_ftprintf_s", triplet("fprintf_s", "fwprintf_s")) <<
+            std::make_pair("_tprintf_s", triplet("printf_s", "wprintf_s")) <<
+            std::make_pair("_stprintf_s", triplet("sprintf_s", "swprintf_s")) <<
+            std::make_pair("_sntprintf_s", triplet("_snprintf_s", "_snwprintf_s")) <<
+            std::make_pair("_ftscanf_s", triplet("fscanf_s", "fwscanf_s")) <<
+            std::make_pair("_tscanf_s", triplet("scanf_s", "wscanf_s")) <<
+            std::make_pair("_stscanf_s", triplet("sscanf_s", "swscanf_s"));
 }
 
 void Tokenizer::simplifyMicrosoftStringFunctions()
@@ -9090,13 +9137,13 @@ void Tokenizer::simplifyMicrosoftStringFunctions()
 
     const bool ansi = _settings->platformType == Settings::Win32A;
     for (Token *tok = list.front(); tok; tok = tok->next()) {
-        std::set<triplet>::const_iterator match = apis.find(triplet(tok->str()));
+        if (tok->strAt(1) != "(")
+            continue;
+
+        std::map<std::string, triplet>::const_iterator match = apis.find(tok->str());
         if (match!=apis.end()) {
-            const std::string pattern(match->tchar + " (");
-            if (Token::simpleMatch(tok, pattern.c_str())) {
-                tok->str(ansi ? match->mbcs : match->unicode);
-                tok->originalName(match->tchar);
-            }
+            tok->str(ansi ? match->second.mbcs : match->second.unicode);
+            tok->originalName(match->first);
         } else if (Token::Match(tok, "_T ( %char%|%str% )")) {
             tok->deleteNext();
             tok->deleteThis();

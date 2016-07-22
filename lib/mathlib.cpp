@@ -360,8 +360,6 @@ MathLib::bigint MathLib::characterLiteralToLongNumber(const std::string& str)
     // is implementation-defined.
     // clang and gcc seem to use the following encoding: 'AB' as (('A' << 8) | 'B')
     const std::string& normStr = normalizeCharacterLiteral(str);
-    if (normStr.empty())
-        throw InternalError(0, "Internal Error. MathLib::characterLiteralToLongNumber: Unhandled char constant '" + str + "'.");
     return encodeMultiChar(normStr);
 }
 
@@ -376,14 +374,14 @@ std::string MathLib::normalizeCharacterLiteral(const std::string& iLiteral)
         }
         ++idx;
         if (idx == iLiteralLen) {
-            throw InternalError(0, "Internal Error. MathLib::toLongNumber: Unhandled char constant '" + iLiteral + "'.");
+            throw InternalError(0, "Internal Error. MathLib::normalizeCharacterLiteral: Unhandled char constant '" + iLiteral + "'.");
         }
         switch (iLiteral[idx]) {
         case 'x':
             // Hexa-decimal number: skip \x and interpret the next two characters
         {
             if (++idx == iLiteralLen)
-                throw InternalError(0, "Internal Error. MathLib::toLongNumber: Unhandled char constant '" + iLiteral + "'.");
+                throw InternalError(0, "Internal Error. MathLib::normalizeCharacterLiteral: Unhandled char constant '" + iLiteral + "'.");
             std::string tempBuf;
             tempBuf.push_back(iLiteral[idx]);
             if (++idx != iLiteralLen)
@@ -394,10 +392,12 @@ std::string MathLib::normalizeCharacterLiteral(const std::string& iLiteral)
         case 'u':
         case 'U':
             // Unicode string; just skip the \u or \U
+            if (idx + 1 == iLiteralLen)
+                throw InternalError(0, "Internal Error. MathLib::characterLiteralToLongNumber: Unhandled char constant '" + iLiteral + "'.");
             continue;
         }
         // Single digit octal number
-        if (1 == std::min<unsigned>(3, iLiteralLen - idx)) {
+        if (1 == iLiteralLen - idx) {
             switch (iLiteral[idx]) {
             case '0':
             case '1':
@@ -440,13 +440,13 @@ std::string MathLib::normalizeCharacterLiteral(const std::string& iLiteral)
                 normalizedLiteral.push_back(iLiteral[idx]);
                 break;
             default:
-                throw InternalError(0, "Internal Error. MathLib::toLongNumber: Unhandled char constant '" + iLiteral + "'.");
+                throw InternalError(0, "Internal Error. MathLib::normalizeCharacterLiteral: Unhandled char constant '" + iLiteral + "'.");
             }
             continue;
         }
         // 2-3 digit octal number
         if (!MathLib::isOctalDigit(iLiteral[idx]))
-            throw InternalError(0, "Internal Error. MathLib::toLongNumber: Unhandled char constant '" + iLiteral + "'.");
+            throw InternalError(0, "Internal Error. MathLib::normalizeCharacterLiteral: Unhandled char constant '" + iLiteral + "'.");
         std::string tempBuf;
         tempBuf.push_back(iLiteral[idx]);
         ++idx;
@@ -1251,6 +1251,45 @@ bool MathLib::isNullValue(const std::string &str)
 bool MathLib::isOctalDigit(char c)
 {
     return (c >= '0' && c <= '7');
+}
+
+bool MathLib::isDigitSeparator(const std::string& iCode, std::string::size_type iPos)
+{
+    if (iPos == 0 || iPos >= iCode.size() || iCode[iPos] != '\'')
+        return false;
+    std::string::size_type i = iPos - 1;
+    while (std::isxdigit(iCode[i])) {
+        if (i == 0)
+            return true; // Only xdigits before '
+        --i;
+    }
+    if (i == iPos - 1) { // No xdigit before '
+        return false;
+    } else {
+        switch (iCode[i]) {
+        case ' ':
+        case '.':
+        case ',':
+        case 'x':
+        case '(':
+        case '{':
+        case '+':
+        case '-':
+        case '*':
+        case '%':
+        case '/':
+        case '&':
+        case '|':
+        case '^':
+        case '~':
+        case '=':
+            return true;
+        case '\'':
+            return isDigitSeparator(iCode, i);
+        default:
+            return false;
+        }
+    }
 }
 
 MathLib::value operator+(const MathLib::value &v1, const MathLib::value &v2)

@@ -643,7 +643,7 @@ bool CmdLineParser::ParseFromArgs(int argc, const char* const argv[])
             // Rule file
             else if (std::strncmp(argv[i], "--rule-file=", 12) == 0) {
                 tinyxml2::XMLDocument doc;
-                if (doc.LoadFile(12+argv[i]) == tinyxml2::XML_NO_ERROR) {
+                if (doc.LoadFile(12+argv[i]) == tinyxml2::XML_SUCCESS) {
                     tinyxml2::XMLElement *node = doc.FirstChildElement();
                     for (; node && strcmp(node->Value(), "rule") == 0; node = node->NextSiblingElement()) {
                         Settings::Rule rule;
@@ -993,5 +993,5 @@ void CmdLineParser::PrintHelp()
               "  cppcheck -I inc1/ -I inc2/ f.cpp\n"
               "\n"
               "For more information:\n"
-              "    http://cppcheck.sourceforge.net/manual.pdf\n";
+              "    http://cppcheck.net/manual.pdf\n";
 }

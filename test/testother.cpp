@@ -86,7 +86,6 @@ private:
         TEST_CASE(switchRedundantAssignmentTest);
         TEST_CASE(switchRedundantOperationTest);
         TEST_CASE(switchRedundantBitwiseOperationTest);
-        TEST_CASE(switchFallThroughCase);
         TEST_CASE(unreachableCode);
 
         TEST_CASE(suspiciousCase);
@@ -220,41 +219,6 @@ private:
 
         check(code, nullptr, false, false, true, &settings);
     }
-
-    void check_preprocess_suppress(const char precode[], const char *filename = nullptr) {
-        // Clear the error buffer..
-        errout.str("");
-
-        if (filename == nullptr)
-            filename = "test.cpp";
-
-        Settings settings;
-        settings.addEnabled("warning");
-        settings.addEnabled("style");
-        settings.addEnabled("performance");
-        settings.experimental = true;
-
-        // Preprocess file..
-        SimpleSuppressor logger(settings, this);
-        Preprocessor preprocessor(settings, &logger);
-        std::list<std::string> configurations;
-        std::string filedata = "";
-        std::istringstream fin(precode);
-        preprocessor.preprocess(fin, filedata, configurations, filename, settings.includePaths);
-        const std::string code = preprocessor.getcode(filedata, "", filename);
-
-        // Tokenize..
-        Tokenizer tokenizer(&settings, &logger);
-        std::istringstream istr(code);
-        tokenizer.tokenize(istr, filename);
-
-        // Check..
-        CheckOther checkOther(&tokenizer, &settings, &logger);
-        checkOther.checkSwitchCaseFallThrough();
-
-        logger.reportUnmatchedSuppressions(settings.nomsg.getUnmatchedLocalSuppressions(filename, false));
-    }
-
 
     void emptyBrackets() {
         check("{\n"
@@ -2163,307 +2127,6 @@ private:
         ASSERT_EQUALS("", errout.str());
     }
 
-    void switchFallThroughCase() {
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    switch (a) {\n"
-            "        case 1:\n"
-            "            break;\n"
-            "        case 2:\n"
-            "            break;\n"
-            "    }\n"
-            "}");
-        ASSERT_EQUALS("", errout.str());
-
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    switch (a) {\n"
-            "        case 1:\n"
-            "            break;\n"
-            "        case 2:\n"
-            "            continue;\n"
-            "        case 3:\n"
-            "            return;\n"
-            "        case 4:\n"
-            "            exit(1);\n"
-            "        case 5:\n"
-            "            goto end;\n"
-            "        case 6:\n"
-            "            throw e;\n"
-            "        case 7:\n"
-            "            break;\n"
-            "    }\n"
-            "}");
-        ASSERT_EQUALS("", errout.str());
-
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    switch (a) {\n"
-            "        case 0:\n"
-            "        case 1:\n"
-            "            break;\n"
-            "        case 2:\n"
-            "            break;\n"
-            "    }\n"
-            "}");
-        ASSERT_EQUALS("", errout.str());
-
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    switch (a) {\n"
-            "        case 1:\n"
-            "            g();\n"
-            "        case 2:\n"
-            "            break;\n"
-            "    }\n"
-            "}");
-        ASSERT_EQUALS("[test.cpp:5]: (style) Switch falls through case without comment. 'break;' missing?\n", errout.str());
-
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    switch (a) {\n"
-            "        case 1:\n"
-            "            g();\n"
-            "        default:\n"
-            "            break;\n"
-            "    }\n"
-            "}");
-        ASSERT_EQUALS("[test.cpp:5]: (style) Switch falls through case without comment. 'break;' missing?\n", errout.str());
-
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    switch (a) {\n"
-            "        case 1:\n"
-            "            g();\n"
-            "            // fall through\n"
-            "        case 2:\n"
-            "            break;\n"
-            "    }\n"
-            "}");
-        ASSERT_EQUALS("", errout.str());
-
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    switch (a) {\n"
-            "        case 1:\n"
-            "            g();\n"
-            "            /* FALLTHRU */\n"
-            "        case 2:\n"
-            "            break;\n"
-            "    }\n"
-            "}");
-        ASSERT_EQUALS("", errout.str());
-
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    switch (a) {\n"
-            "        case 1:\n"
-            "            g();\n"
-            "            break;\n"
-            "            // fall through\n"
-            "        case 2:\n"
-            "            break;\n"
-            "    }\n"
-            "}");
-        ASSERT_EQUALS("[test.cpp:7]: (information) Unmatched suppression: switchCaseFallThrough\n", errout.str());
-
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    switch (a) {\n"
-            "        case 1:\n"
-            "            {\n"
-            "                break;\n"
-            "            }\n"
-            "        case 2:\n"
-            "            break;\n"
-            "    }\n"
-            "}");
-        ASSERT_EQUALS("", errout.str());
-
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    switch (a) {\n"
-            "        case 1:\n"
-            "            for (;;) {\n"
-            "                break;\n"
-            "            }\n"
-            "        case 2:\n"
-            "            break;\n"
-            "    }\n"
-            "}");
-        ASSERT_EQUALS("[test.cpp:7]: (style) Switch falls through case without comment. 'break;' missing?\n", errout.str());
-
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    switch (a) {\n"
-            "        case 1:\n"
-            "            if (b) {\n"
-            "                break;\n"
-            "            } else {\n"
-            "                break;\n"
-            "            }\n"
-            "        case 2:\n"
-            "            break;\n"
-            "    }\n"
-            "}");
-        ASSERT_EQUALS("", errout.str());
-
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    switch (a) {\n"
-            "        case 1:\n"
-            "            if (b) {\n"
-            "                break;\n"
-            "            } else {\n"
-            "            }\n"
-            "        case 2:\n"
-            "            break;\n"
-            "    }\n"
-            "}");
-        ASSERT_EQUALS("[test.cpp:8]: (style) Switch falls through case without comment. 'break;' missing?\n", errout.str());
-
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    switch (a) {\n"
-            "        case 1:\n"
-            "            if (b) {\n"
-            "                break;\n"
-            "            }\n"
-            "        case 2:\n"
-            "            break;\n"
-            "    }\n"
-            "}");
-        ASSERT_EQUALS("[test.cpp:7]: (style) Switch falls through case without comment. 'break;' missing?\n", errout.str());
-
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    switch (a) {\n"
-            "        case 1:\n"
-            "            if (b) {\n"
-            "            } else {\n"
-            "                break;\n"
-            "            }\n"
-            "        case 2:\n"
-            "            break;\n"
-            "    }\n"
-            "}");
-        ASSERT_EQUALS("[test.cpp:8]: (style) Switch falls through case without comment. 'break;' missing?\n", errout.str());
-
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    switch (a) {\n"
-            "        case 1:\n"
-            "            if (b) {\n"
-            "        case 2:\n"
-            "            } else {\n"
-            "                break;\n"
-            "            }\n"
-            "            break;\n"
-            "    }\n"
-            "}");
-        ASSERT_EQUALS("[test.cpp:5]: (style) Switch falls through case without comment. 'break;' missing?\n", errout.str());
-
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    switch (a) {\n"
-            "            int x;\n"
-            "        case 1:\n"
-            "            break;\n"
-            "    }\n"
-            "}");
-        ASSERT_EQUALS("", errout.str());
-
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    switch (a) {\n"
-            "    case 1:\n"
-            "        g();\n"
-            "        switch (b) {\n"
-            "            case 1:\n"
-            "                return;\n"
-            "            default:\n"
-            "                return;\n"
-            "        }\n"
-            "    case 2:\n"
-            "        break;\n"
-            "    }\n"
-            "}");
-        // This fails because the switch parsing code currently doesn't understand
-        // that all paths after g() actually return. It's a pretty unusual case
-        // (no pun intended).
-        TODO_ASSERT_EQUALS("",
-                           "[test.cpp:11]: (style) Switch falls through case without comment. 'break;' missing?\n", errout.str());
-
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    switch (a) {\n"
-            "    case 1:\n"
-            "#ifndef A\n"
-            "        g();\n"
-            "        // fall through\n"
-            "#endif\n"
-            "    case 2:\n"
-            "        break;\n"
-            "    }\n"
-            "}");
-        ASSERT_EQUALS("", errout.str());
-
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    switch (a) {\n"
-            "    case 1:\n"
-            "        goto leave;\n"
-            "    case 2:\n"
-            "        break;\n"
-            "    }\n"
-            "leave:\n"
-            "    if (x) {\n"
-            "        g();\n"
-            "        return;\n"
-            "    }\n"
-            "}");
-        ASSERT_EQUALS("", errout.str());
-
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    switch (a) {\n"
-            "    case 1:\n"
-            "        g();\n"
-            "        // fall through\n"
-            "    case 2:\n"
-            "        g();\n"
-            "        // falls through\n"
-            "    case 3:\n"
-            "        g();\n"
-            "        // fall-through\n"
-            "    case 4:\n"
-            "        g();\n"
-            "        // drop through\n"
-            "    case 5:\n"
-            "        g();\n"
-            "        // pass through\n"
-            "    case 5:\n"
-            "        g();\n"
-            "        // no break\n"
-            "    case 5:\n"
-            "        g();\n"
-            "        // fallthru\n"
-            "    case 6:\n"
-            "        g();\n"
-            "        /* fall */\n"
-            "    default:\n"
-            "        break;\n"
-            "    }\n"
-            "}");
-        ASSERT_EQUALS("", errout.str());
-
-        check_preprocess_suppress(
-            "void foo() {\n"
-            "    // unrelated comment saying 'fall through'\n"
-            "}");
-        ASSERT_EQUALS("", errout.str());
-    }
-
     void unreachableCode() {
         check("void foo(int a) {\n"
               "    while(1) {\n"
@@ -3006,16 +2669,6 @@ private:
               "    this->var = var;\n"
               "}");
         ASSERT_EQUALS("", errout.str());
-
-        // #6406 - false positive for struct with designated initializer
-        check("struct callbacks {\n"
-              "    void (*something)(void);\n"
-              "};\n"
-              "void something(void) {}\n"
-              "void f() {\n"
-              "    struct callbacks ops = { .something = something };\n"
-              "}\n");
-        TODO_ASSERT_EQUALS("", "[test.cpp:6]: (warning) Redundant assignment of 'something' to itself.\n", errout.str());
 
         // #6406 - designated initializer doing bogus self assignment
         check("struct callbacks {\n"
@@ -4917,6 +4570,13 @@ private:
               "}");
         ASSERT_EQUALS("[test.cpp:3] -> [test.cpp:4]: (style, inconclusive) Variable 'i' is reassigned a value before the old one has been used if variable is no semaphore variable.\n", errout.str());
 
+        check("void f() {\n"
+              "    int i[10];\n"
+              "    i[2] = 1;\n"
+              "    i[2] = 1;\n"
+              "}", nullptr, false, false, false);
+        ASSERT_EQUALS("[test.cpp:3] -> [test.cpp:4]: (style) Variable 'i[2]' is reassigned a value before the old one has been used.\n", errout.str());
+
         check("void f(int x) {\n"
               "    int i[10];\n"
               "    i[x] = 1;\n"
@@ -5066,7 +4726,7 @@ private:
               "    x = 2;\n"
               "    x = z.g();\n"
               "}");
-        ASSERT_EQUALS("[test.cpp:8] -> [test.cpp:9]: (style, inconclusive) Variable 'x' is reassigned a value before the old one has been used if variable is no semaphore variable.\n", errout.str());
+        ASSERT_EQUALS("", errout.str());
 
         // from #3103 (avoid a false negative)
         check("int foo(){\n"
@@ -5122,7 +4782,7 @@ private:
               "    ab.a = 2;\n"
               "    return ab.a;\n"
               "}");
-        ASSERT_EQUALS("[test.cpp:5] -> [test.cpp:6]: (style, inconclusive) Variable 'a' is reassigned a value before the old one has been used if variable is no semaphore variable.\n", errout.str());
+        ASSERT_EQUALS("[test.cpp:5] -> [test.cpp:6]: (style) Variable 'ab.a' is reassigned a value before the old one has been used.\n", errout.str());
 
         check("struct AB { int a; int b; };\n"
               "\n"
@@ -5282,9 +4942,7 @@ private:
               "   catch (const uno::Exception&)  {\n"
               "   }\n"
               "}", "test.cpp", false, true);
-        TODO_ASSERT_EQUALS("",
-                           "[test.cpp:6] -> [test.cpp:9]: (style) Variable 'Name' is reassigned a value before the old one has been used.\n",
-                           errout.str());
+        ASSERT_EQUALS("", errout.str());
 
         check("void ConvertBitmapData(sal_uInt16 nDestBits) {\n"
               "BitmapBuffer aSrcBuf;\n"
@@ -5293,7 +4951,7 @@ private:
               "    aSrcBuf.mnBitCount = nDestBits;\n"
               "    bConverted = ::ImplFastBitmapConversion( aDstBuf, aSrcBuf, aTwoRects );\n"
               "}", "test.c");
-        ASSERT_EQUALS("[test.c:3] -> [test.c:5]: (style) Variable 'mnBitCount' is reassigned a value before the old one has been used.\n", errout.str());
+        ASSERT_EQUALS("[test.c:3] -> [test.c:5]: (style) Variable 'aSrcBuf.mnBitCount' is reassigned a value before the old one has been used.\n", errout.str());
         check("void ConvertBitmapData(sal_uInt16 nDestBits) {\n"
               "BitmapBuffer aSrcBuf;\n"
               "    aSrcBuf.mnBitCount = nSrcBits;\n"
@@ -5301,8 +4959,8 @@ private:
               "    aSrcBuf.mnBitCount = nDestBits;\n"
               "    bConverted = ::ImplFastBitmapConversion( aDstBuf, aSrcBuf, aTwoRects );\n"
               "}");
-        TODO_ASSERT_EQUALS("[test.cpp:3] -> [test.cpp:5]: (style, inconclusive) Variable 'mnBitCount' is reassigned a value before the old one has been used.\n",
-                           "[test.cpp:3] -> [test.cpp:5]: (style) Variable 'mnBitCount' is reassigned a value before the old one has been used.\n",
+        TODO_ASSERT_EQUALS("[test.cpp:3] -> [test.cpp:5]: (style, inconclusive) Variable 'aSrcBuf.mnBitCount' is reassigned a value before the old one has been used.\n",
+                           "[test.cpp:3] -> [test.cpp:5]: (style) Variable 'aSrcBuf.mnBitCount' is reassigned a value before the old one has been used.\n",
                            errout.str());
 
     }
@@ -5414,6 +5072,23 @@ private:
               "    return i;\n"
               "}");
         ASSERT_EQUALS("", errout.str());
+
+        // #7175 - read+write
+        check("void f() {\n"
+              "    char buf[100];\n"
+              "    strcpy(buf, x);\n"
+              "    strcpy(buf, dostuff(buf));\n" // <- read + write
+              "    strcpy(buf, x);\n"
+              "}");
+        ASSERT_EQUALS("", errout.str());
+
+        check("void f() {\n"
+              "    char buf[100];\n"
+              "    strcpy(buf, x);\n"
+              "    strcpy(buf, dostuff(buf));\n"
+              "    strcpy(buf, x);\n"
+              "}");
+        TODO_ASSERT_EQUALS("error", "", errout.str());
     }
 
     void varFuncNullUB() { // #4482

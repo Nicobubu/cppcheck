@@ -38,22 +38,9 @@ class Directive:
         self.linenr = element.get('linenr')
 
 
-## Token class. Contains information about each token in the source code.
-#
-# The CppcheckData.tokenlist is a list of Token items
-#
-# C++ class: http://cppcheck.sourceforge.net/devinfo/doxyoutput/classToken.html
-#
-# To iterate through all tokens use such code:
-# @code
-# data = cppcheckdata.parsedump(...)
-# for cfg in data.configurations:
-#   code = ''
-#   for token in cfg.tokenlist:
-#     code = code + token.str + ' '
-#   print(code)
-# @endcode
-#
+class Token:
+    """
+    Token class. Contains information about each token in the source code.
 
     The CppcheckData.tokenlist is a list of Token items
 
@@ -219,8 +206,6 @@ class Directive:
                 return value
         return None
 
-## Scope. Information about global scope, function scopes, class scopes, inner scopes, etc.
-# C++ class: http://cppcheck.sourceforge.net/devinfo/doxyoutput/classScope.html
 
 class Scope:
     """
@@ -261,9 +246,6 @@ class Scope:
         self.classEnd = IdMap[self.classEndId]
         self.nestedIn = IdMap[self.nestedInId]
 
-## Information about a function
-# C++ class:
-# http://cppcheck.sourceforge.net/devinfo/doxyoutput/classFunction.html
 
 
 class Function:
@@ -294,9 +276,6 @@ class Function:
             self.argument[argnr] = IdMap[argid]
         self.tokenDef = IdMap[self.tokenDefId]
 
-## Information about a variable
-# C++ class:
-# http://cppcheck.sourceforge.net/devinfo/doxyoutput/classVariable.html
 
 class Variable:
     """
@@ -356,11 +335,12 @@ class Variable:
 
 
 class ValueFlow:
-    ## ValueFlow::Value class
-    # Each possible value has a ValueFlow::Value item.
-    # Each ValueFlow::Value either has a intvalue or tokvalue
-    # C++ class:
-    # http://cppcheck.sourceforge.net/devinfo/doxyoutput/classValueFlow_1_1Value.html
+    """
+    ValueFlow::Value class
+    Each possible value has a ValueFlow::Value item.
+    Each ValueFlow::Value either has a intvalue or tokvalue
+    C++ class:
+    http://cppcheck.net/devinfo/doxyoutput/classValueFlow_1_1Value.html
 
     Attributes:
         values    Possible values

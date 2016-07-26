@@ -49,7 +49,8 @@ public:
             std::vector<std::string> files;
             const simplecpp::TokenList tokens1 = simplecpp::TokenList(istr, files, "file.cpp", &outputList);
             const std::map<std::string, simplecpp::TokenList*> filedata;
-            const simplecpp::TokenList tokens2 = simplecpp::preprocess(tokens1, files, filedata, simplecpp::DUI(), &outputList);
+            simplecpp::TokenList tokens2(files);
+            simplecpp::preprocess(tokens2, tokens1, files, filedata, simplecpp::DUI(), &outputList);
 
             if (errorLogger) {
                 for (simplecpp::OutputList::const_iterator it = outputList.begin(); it != outputList.end(); ++it) {
@@ -69,10 +70,6 @@ public:
             }
 
             return tokens2.stringify();
-        }
-
-        static int getHeaderFileName(std::string &str) {
-            return Preprocessor::getHeaderFileName(str);
         }
     };
 
@@ -105,6 +102,8 @@ private:
         TEST_CASE(error3);
         TEST_CASE(error4);  // #2919 - wrong filename is reported
         TEST_CASE(error5);
+
+        TEST_CASE(setPlatformInfo);
 
         // Handling include guards (don't create extra configuration for it)
         TEST_CASE(includeguard1);
@@ -196,7 +195,6 @@ private:
         TEST_CASE(conditionalDefine);
         TEST_CASE(macro_parameters);
         TEST_CASE(newline_in_macro);
-        TEST_CASE(includes);
         TEST_CASE(ifdef_ifdefined);
 
         // define and then ifdef
@@ -260,8 +258,10 @@ private:
         std::istringstream istr(code);
         simplecpp::OutputList outputList;
         std::vector<std::string> files;
-        const simplecpp::TokenList tokens(istr, files, filename, &outputList);
+        simplecpp::TokenList tokens(istr, files, filename, &outputList);
+        tokens.removeComments();
         const std::set<std::string> configs(preprocessor0.getConfigs(tokens));
+        preprocessor0.setDirectives(tokens);
         for (std::set<std::string>::const_iterator it = configs.begin(); it != configs.end(); ++it) {
             try {
                 const std::string &cfgcode = preprocessor0.getcode(tokens, *it, files, std::string(code).find("#file") != std::string::npos);
@@ -633,6 +633,31 @@ private:
         const std::string code("#error hello world!\n");
         preprocessor.getcode(code, "X", "test.c");
         ASSERT_EQUALS("", errout.str());
+    }
+
+    void setPlatformInfo() {
+        Settings settings;
+        Preprocessor preprocessor(settings, this);
+
+        // read code with simplecpp..
+        const char filedata[] = "#if sizeof(long) == 4\n"
+                                "1\n"
+                                "#else\n"
+                                "2\n"
+                                "#endif\n";
+        std::istringstream istr(filedata);
+        std::vector<std::string> files;
+        simplecpp::TokenList tokens(istr, files, "test.c");
+
+        // preprocess code with unix32 platform..
+        settings.platform(Settings::PlatformType::Unix32);
+        preprocessor.setPlatformInfo(&tokens);
+        ASSERT_EQUALS("\n1", preprocessor.getcode(tokens, "", files, false));
+
+        // preprocess code with unix64 platform..
+        settings.platform(Settings::PlatformType::Unix64);
+        preprocessor.setPlatformInfo(&tokens);
+        ASSERT_EQUALS("\n\n\n2", preprocessor.getcode(tokens, "", files, false));
     }
 
     void includeguard1() {
@@ -1996,38 +2021,6 @@ private:
         ASSERT_EQUALS(1, static_cast<unsigned int>(actual.size()));
         ASSERT_EQUALS("\nvoid f ( )\n{\n$printf $( \"\\n\" $) ;\n}", actual[""]);
         ASSERT_EQUALS("", errout.str());
-    }
-
-    void includes() const {
-        {
-            std::string src = "#include a.h";
-            ASSERT_EQUALS(OurPreprocessor::NoHeader, OurPreprocessor::getHeaderFileName(src));
-            ASSERT_EQUALS("", src);
-        }
-
-        {
-            std::string src = "#include \"b.h\"";
-            ASSERT_EQUALS(OurPreprocessor::UserHeader, OurPreprocessor::getHeaderFileName(src));
-            ASSERT_EQUALS("b.h", src);
-        }
-
-        {
-            std::string src = "#include <c.h>";
-            ASSERT_EQUALS(OurPreprocessor::SystemHeader, OurPreprocessor::getHeaderFileName(src));
-            ASSERT_EQUALS("c.h", src);
-        }
-
-        {
-            std::string src = "#include \"d/d.h\"";
-            ASSERT_EQUALS(OurPreprocessor::UserHeader, OurPreprocessor::getHeaderFileName(src));
-            ASSERT_EQUALS("d/d.h", src);
-        }
-
-        {
-            std::string src = "#include \"e\\e.h\"";
-            ASSERT_EQUALS(OurPreprocessor::UserHeader, OurPreprocessor::getHeaderFileName(src));
-            ASSERT_EQUALS("e/e.h", src);
-        }
     }
 
     void ifdef_ifdefined() {

@@ -85,11 +85,8 @@ void Preprocessor::writeError(const std::string &fileName, const unsigned int li
 }
 
 
-void Preprocessor::inlineSuppressions(const simplecpp::TokenList &tokens)
+static void inlineSuppressions(const simplecpp::TokenList &tokens, Settings &_settings)
 {
-    if (!_settings.inlineSuppressions)
-        return;
-
     std::list<std::string> suppressionIDs;
 
     for (const simplecpp::Token *tok = tokens.cbegin(); tok; tok = tok->next) {
@@ -119,7 +116,6 @@ void Preprocessor::inlineSuppressions(const simplecpp::TokenList &tokens)
             }
         }
 
-
         // Add the suppressions.
         for (std::list<std::string>::const_iterator it = suppressionIDs.begin(); it != suppressionIDs.end(); ++it) {
             _settings.nomsg.addSuppression(*it, relativeFilename, tok->location.line);
@@ -128,45 +124,104 @@ void Preprocessor::inlineSuppressions(const simplecpp::TokenList &tokens)
     }
 }
 
+void Preprocessor::inlineSuppressions(const simplecpp::TokenList &tokens)
+{
+    if (!_settings.inlineSuppressions)
+        return;
+    ::inlineSuppressions(tokens, _settings);
+    for (std::map<std::string,simplecpp::TokenList*>::const_iterator it = tokenlists.begin(); it != tokenlists.end(); ++it) {
+        if (it->second)
+            ::inlineSuppressions(*it->second, _settings);
+    }
+}
+
+void Preprocessor::setDirectives(const simplecpp::TokenList &tokens1)
+{
+    // directive list..
+    directives.clear();
+
+    std::list<const simplecpp::TokenList *> list;
+    list.push_back(&tokens1);
+    for (std::map<std::string, simplecpp::TokenList *>::const_iterator it = tokenlists.begin(); it != tokenlists.end(); ++it) {
+        list.push_back(it->second);
+    }
+
+    for (std::list<const simplecpp::TokenList *>::const_iterator it = list.begin(); it != list.end(); ++it) {
+        for (const simplecpp::Token *tok = (*it)->cbegin(); tok; tok = tok ? tok->next : nullptr) {
+            if ((tok->op != '#') || (tok->previous && tok->previous->location.line == tok->location.line))
+                continue;
+            if (tok->next && tok->next->str == "endfile")
+                continue;
+            Directive directive(tok->location.file(), tok->location.line, "");
+            for (const simplecpp::Token *tok2 = tok; tok2 && tok2->location.line == directive.linenr; tok2 = tok2->next) {
+                if (tok2->comment)
+                    continue;
+                if (!directive.str.empty() && (tok2->location.col > tok2->previous->location.col + tok2->previous->str.size()))
+                    directive.str += ' ';
+                if (directive.str == "#" && tok2->str == "file")
+                    directive.str += "include";
+                else
+                    directive.str += tok2->str;
+            }
+            directives.push_back(directive);
+        }
+    }
+}
+
+static bool sameline(const simplecpp::Token *tok1, const simplecpp::Token *tok2)
+{
+    return tok1 && tok2 && tok1->location.sameline(tok2->location);
+}
+
 static std::string readcondition(const simplecpp::Token *iftok, const std::set<std::string> &defined)
 {
     const simplecpp::Token *cond = iftok->next;
-    if (!cond)
+    if (!sameline(iftok,cond))
         return "";
 
-    if (cond->str == "0")
+    const simplecpp::Token *next1 = cond->next;
+    const simplecpp::Token *next2 = next1 ? next1->next : nullptr;
+    const simplecpp::Token *next3 = next2 ? next2->next : nullptr;
+
+    unsigned int len = 1;
+    if (sameline(iftok,next1))
+        len = 2;
+    if (sameline(iftok,next2))
+        len = 3;
+    if (sameline(iftok,next3))
+        len = 4;
+
+    if (len == 1 && cond->str == "0")
         return "0";
 
-    if (cond->name && cond->next && iftok->location.sameline(cond->location) && !iftok->location.sameline(cond->next->location)) {
+    if (len == 1 && cond->name) {
         if (defined.find(cond->str) == defined.end())
             return cond->str;
     }
 
-    if (cond->op == '(' && cond->next && cond->next->name && cond->next->next && cond->next->next->op == ')') {
-        if (defined.find(cond->next->str) == defined.end())
-            return cond->next->str;
+    if (len == 3 && cond->op == '(' && next1->name && next2->op == ')') {
+        if (defined.find(next1->str) == defined.end())
+            return next1->str;
     }
 
-    if (cond->name && cond->next && cond->next->str == "==" && cond->next->next && cond->next->next->number) {
+    if (len == 3 && cond->name && next1->str == "==" && next2->number) {
         if (defined.find(cond->str) == defined.end())
             return cond->str + '=' + cond->next->next->str;
     }
 
     std::set<std::string> configset;
-    for (; cond && iftok->location.sameline(cond->location); cond = cond->next) {
+    for (; sameline(iftok,cond); cond = cond->next) {
         if (cond->op == '!')
             break;
-        if (cond->str == "defined") {
-            if (!cond->next)
-                break;
-            const simplecpp::Token *dtok = nullptr;
-            if (cond->next->op == '(')
-                dtok = cond->next->next;
-            else if (cond->next->name)
-                dtok = cond->next;
-            if (dtok && dtok->name && defined.find(dtok->str) == defined.end())
-                configset.insert(dtok->str);
-        }
+        if (cond->str != "defined")
+            continue;
+        const simplecpp::Token *dtok = cond->next;
+        if (!dtok)
+            break;
+        if (dtok->op == '(')
+            dtok = dtok->next;
+        if (sameline(iftok,dtok) && dtok->name && defined.find(dtok->str) == defined.end())
+            configset.insert(dtok->str);
     }
     std::string cfg;
     for (std::set<std::string>::const_iterator it = configset.begin(); it != configset.end(); ++it) {
@@ -199,40 +254,44 @@ static void getConfigs(const simplecpp::TokenList &tokens, std::set<std::string>
     std::vector<std::string> configs_ifndef;
 
     for (const simplecpp::Token *tok = tokens.cbegin(); tok; tok = tok->next) {
-        if (tok->op != '#')
+        if (tok->op != '#' || sameline(tok->previous, tok))
             continue;
-        if (tok->previous && tok->location.sameline(tok->previous->location))
+        const simplecpp::Token *cmdtok = tok->next;
+        if (!sameline(tok, cmdtok))
             continue;
-        if (!tok->next)
-            continue;
-        if (tok->next->str == "ifdef" || tok->next->str == "ifndef" || tok->next->str == "if") {
+        if (cmdtok->str == "ifdef" || cmdtok->str == "ifndef" || cmdtok->str == "if") {
             std::string config;
-            if (tok->next->str == "ifdef" || tok->next->str == "ifndef") {
-                if (tok->next->next && tok->next->next->name && tok->location.sameline(tok->next->next->location) && tok->next->next->next && !tok->location.sameline(tok->next->next->next->location))
-                    config = tok->next->next->str;
+            if (cmdtok->str == "ifdef" || cmdtok->str == "ifndef") {
+                const simplecpp::Token *expr1 = cmdtok->next;
+                if (sameline(tok,expr1) && expr1->name && !sameline(tok,expr1->next))
+                    config = expr1->str;
                 if (defined.find(config) != defined.end())
                     config.clear();
-            } else if (tok->next->str == "if") {
-                config = readcondition(tok->next, defined);
+            } else if (cmdtok->str == "if") {
+                config = readcondition(cmdtok, defined);
             }
-            configs_if.push_back((tok->next->str == "ifndef") ? std::string() : config);
-            configs_ifndef.push_back((tok->next->str == "ifndef") ? config : std::string());
+            configs_if.push_back((cmdtok->str == "ifndef") ? std::string() : config);
+            configs_ifndef.push_back((cmdtok->str == "ifndef") ? config : std::string());
             ret.insert(cfg(configs_if));
-        } else if (tok->next->str == "elif") {
-            configs_if.pop_back();
-            configs_if.push_back(readcondition(tok->next, defined));
+        } else if (cmdtok->str == "elif") {
+            if (!configs_if.empty())
+                configs_if.pop_back();
+            configs_if.push_back(readcondition(cmdtok, defined));
             ret.insert(cfg(configs_if));
-        } else if (tok->next->str == "else") {
-            configs_if.pop_back();
-            configs_if.push_back(configs_ifndef.back());
-            ret.insert(cfg(configs_if));
-        } else if (tok->next->str == "endif" && tok->location.sameline(tok->next->location)) {
+        } else if (cmdtok->str == "else") {
+            if (!configs_if.empty())
+                configs_if.pop_back();
+            if (!configs_ifndef.empty()) {
+                configs_if.push_back(configs_ifndef.back());
+                ret.insert(cfg(configs_if));
+            }
+        } else if (cmdtok->str == "endif" && !sameline(tok, cmdtok->next)) {
             if (!configs_if.empty())
                 configs_if.pop_back();
             if (!configs_ifndef.empty())
                 configs_ifndef.pop_back();
-        } else if (tok->next->str == "define" && tok->next->next && tok->next->next->name && tok->location.sameline(tok->next->next->location)) {
-            defined.insert(tok->next->next->str);
+        } else if (cmdtok->str == "define" && sameline(tok, cmdtok->next) && cmdtok->next->name) {
+            defined.insert(cmdtok->next->str);
         }
     }
 }
@@ -242,15 +301,13 @@ std::set<std::string> Preprocessor::getConfigs(const simplecpp::TokenList &token
 {
     std::set<std::string> ret;
     ret.insert("");
-    simplecpp::TokenList tokens2(tokens);
-    tokens2.removeComments();
-    if (!tokens2.cbegin())
+    if (!tokens.cbegin())
         return ret;
 
     std::set<std::string> defined;
     defined.insert("__cplusplus");
 
-    ::getConfigs(tokens2, defined, ret);
+    ::getConfigs(tokens, defined, ret);
 
     for (std::map<std::string, simplecpp::TokenList*>::const_iterator it = tokenlists.begin(); it != tokenlists.end(); ++it)
         ::getConfigs(*(it->second), defined, ret);
@@ -258,92 +315,6 @@ std::set<std::string> Preprocessor::getConfigs(const simplecpp::TokenList &token
     return ret;
 }
 
-std::string Preprocessor::preprocessCleanupDirectives(const std::string &processedFile)
-{
-    std::ostringstream code;
-    std::istringstream sstr(processedFile);
-
-    std::string line;
-    while (std::getline(sstr, line)) {
-        // Trim lines..
-        if (!line.empty() && line[0] == ' ')
-            line.erase(0, line.find_first_not_of(" "));
-        if (!line.empty() && 
-#if GCC_VERSION >= 40600
-            line.back() == ' '
-#else
-            line[line.size() - 1] == ' '
-#endif
-        )
-            line.erase(line.find_last_not_of(" ") + 1);
-
-        // Preprocessor
-        if (!line.empty() && line[0] == '#') {
-            enum {
-                ESC_NONE,
-                ESC_SINGLE,
-                ESC_DOUBLE
-            } escapeStatus = ESC_NONE;
-
-            char prev = ' '; // hack to make it skip spaces between # and the directive
-            code << "#";
-            std::string::const_iterator i = line.begin();
-            ++i;
-
-            // need space.. #if( => #if (
-            bool needSpace = true;
-            while (i != line.end()) {
-                // disable esc-mode
-                if (escapeStatus != ESC_NONE) {
-                    if (prev != '\\' && escapeStatus == ESC_SINGLE && *i == '\'') {
-                        escapeStatus = ESC_NONE;
-                    }
-                    if (prev != '\\' && escapeStatus == ESC_DOUBLE && *i == '"') {
-                        escapeStatus = ESC_NONE;
-                    }
-                } else {
-                    // enable esc-mode
-                    if (escapeStatus == ESC_NONE && *i == '"')
-                        escapeStatus = ESC_DOUBLE;
-                    if (escapeStatus == ESC_NONE && *i == '\'')
-                        escapeStatus = ESC_SINGLE;
-                }
-                // skip double whitespace between arguments
-                if (escapeStatus == ESC_NONE && prev == ' ' && *i == ' ') {
-                    ++i;
-                    continue;
-                }
-                // Convert #if( to "#if ("
-                if (escapeStatus == ESC_NONE) {
-                    if (needSpace) {
-                        if (*i == '(' || *i == '!')
-                            code << " ";
-                        else if (!std::isalpha((unsigned char)*i))
-                            needSpace = false;
-                    }
-                    if (*i == '#')
-                        needSpace = true;
-                }
-                code << *i;
-                if (escapeStatus != ESC_NONE && prev == '\\' && *i == '\\') {
-                    prev = ' ';
-                } else {
-                    prev = *i;
-                }
-                ++i;
-            }
-            if (escapeStatus != ESC_NONE) {
-                // unmatched quotes.. compiler should probably complain about this..
-            }
-        } else {
-            // Do not mess with regular code..
-            code << line;
-        }
-        code << (sstr.eof()?"":"\n");
-    }
-
-    return code.str();
-}
 
 void Preprocessor::preprocess(std::istream &istr, std::map<std::string, std::string> &result, const std::string &filename, const std::list<std::string> &includePaths)
 {
@@ -461,6 +432,34 @@ void Preprocessor::loadFiles(const simplecpp::TokenList &rawtokens, std::vector<
     tokenlists = simplecpp::load(rawtokens, files, dui, &outputList);
 }
 
+void Preprocessor::removeComments()
+{
+    for (std::map<std::string, simplecpp::TokenList*>::iterator it = tokenlists.begin(); it != tokenlists.end(); ++it) {
+        if (it->second)
+            it->second->removeComments();
+    }
+}
+
+void Preprocessor::setPlatformInfo(simplecpp::TokenList *tokens) const
+{
+    tokens->sizeOfType["bool"]          = _settings.sizeof_bool;
+    tokens->sizeOfType["short"]         = _settings.sizeof_short;
+    tokens->sizeOfType["int"]           = _settings.sizeof_int;
+    tokens->sizeOfType["long"]          = _settings.sizeof_long;
+    tokens->sizeOfType["long long"]     = _settings.sizeof_long_long;
+    tokens->sizeOfType["float"]         = _settings.sizeof_float;
+    tokens->sizeOfType["double"]        = _settings.sizeof_double;
+    tokens->sizeOfType["long double"]   = _settings.sizeof_long_double;
+    tokens->sizeOfType["bool *"]        = _settings.sizeof_pointer;
+    tokens->sizeOfType["short *"]       = _settings.sizeof_pointer;
+    tokens->sizeOfType["int *"]         = _settings.sizeof_pointer;
+    tokens->sizeOfType["long *"]        = _settings.sizeof_pointer;
+    tokens->sizeOfType["long long *"]   = _settings.sizeof_pointer;
+    tokens->sizeOfType["float *"]       = _settings.sizeof_pointer;
+    tokens->sizeOfType["double *"]      = _settings.sizeof_pointer;
+    tokens->sizeOfType["long double *"] = _settings.sizeof_pointer;
+}
+
 std::string Preprocessor::getcode(const simplecpp::TokenList &tokens1, const std::string &cfg, std::vector<std::string> &files, const bool writeLocations)
 {
     const std::string filename(files[0]);
@@ -497,36 +496,26 @@ std::string Preprocessor::getcode(const simplecpp::TokenList &tokens1, const std
 
     simplecpp::OutputList outputList;
     std::list<simplecpp::MacroUsage> macroUsage;
-    const simplecpp::TokenList &tokens2 = simplecpp::preprocess(tokens1, files, tokenlists, dui, &outputList, &macroUsage);
+    simplecpp::TokenList tokens2(files);
+    simplecpp::preprocess(tokens2, tokens1, files, tokenlists, dui, &outputList, &macroUsage);
 
     bool showerror = (!_settings.userDefines.empty() && !_settings.force);
     for (simplecpp::OutputList::const_iterator it = outputList.begin(); it != outputList.end(); ++it) {
-        if (it->type == simplecpp::Output::ERROR) {
+        switch (it->type) {
+        case simplecpp::Output::ERROR:
             if (it->msg.compare(0,6,"#error")!=0 || showerror)
                 error(it->location.file(), it->location.line, it->msg);
             return "";
+        case simplecpp::Output::WARNING:
+            break;
+        case simplecpp::Output::MISSING_INCLUDE: {
+            const std::string::size_type pos1 = it->msg.find_first_of("<\"");
+            const std::string::size_type pos2 = it->msg.find_first_of(">\"", pos1 + 1U);
+            if (pos1 < pos2 && pos2 != std::string::npos)
+                missingInclude(it->location.file(), it->location.line, it->msg.substr(pos1+1, pos2-pos1-1), it->msg[pos1] == '\"' ? UserHeader : SystemHeader);
         }
-    }
-
-    // directive list..
-    directives.clear();
-    for (const simplecpp::Token *tok = tokens1.cbegin(); tok; tok = tok ? tok->next : nullptr) {
-        if ((tok->op != '#') || (tok->previous && tok->previous->location.line == tok->location.line))
-            continue;
-        if (tok->next && tok->next->str == "endfile")
-            continue;
-        Directive directive(tok->location.file(), tok->location.line, "");
-        for (const simplecpp::Token *tok2 = tok; tok2 && tok2->location.line == directive.linenr; tok2 = tok2->next) {
-            if (tok2->comment)
-                continue;
-            if (!directive.str.empty() && (tok2->location.col > tok2->previous->location.col + tok2->previous->str.size()))
-                directive.str += ' ';
-            if (directive.str == "#" && tok2->str == "file")
-                directive.str += "include";
-            else
-                directive.str += tok2->str;
-        }
-        directives.push_back(directive);
+        break;
+        };
     }
 
     // ensure that guessed define macros without value are not used in the code
@@ -592,7 +581,6 @@ std::string Preprocessor::getcode(const simplecpp::TokenList &tokens1, const std
             ret << "\n#line " << tok->location.line << " \"" << tok->location.file() << "\"\n";
             prevfile = tok->location.fileIndex;
             line = tok->location.line;
-        }
 
         if (tok->previous && line == tok->location.line)
             ret << ' ';
@@ -601,7 +589,6 @@ std::string Preprocessor::getcode(const simplecpp::TokenList &tokens1, const std
             ret << '\n';
             line++;
             newline = true;
-        }
         if (newline) {
             simplecpp::Location loc = tok->location;
             loc.col = 0U;
@@ -634,14 +621,27 @@ std::string Preprocessor::getcode(const std::string &filedata, const std::string
     std::vector<std::string> files;
 
     std::istringstream istr(filedata);
-    const simplecpp::TokenList &tokens1 = simplecpp::TokenList(istr, files, Path::simplifyPath(filename), &outputList);
+    simplecpp::TokenList tokens1(istr, files, Path::simplifyPath(filename), &outputList);
     inlineSuppressions(tokens1);
+    tokens1.removeComments();
+    removeComments();
+    setDirectives(tokens1);
 
     for (simplecpp::OutputList::const_iterator it = outputList.begin(); it != outputList.end(); ++it) {
-        if (it->type == simplecpp::Output::ERROR) {
+        switch (it->type) {
+        case simplecpp::Output::ERROR:
             error(it->location.file(), it->location.line, it->msg);
             return "";
+        case simplecpp::Output::WARNING:
+            break;
+        case simplecpp::Output::MISSING_INCLUDE: {
+            const std::string::size_type pos1 = it->msg.find_first_of("<\"");
+            const std::string::size_type pos2 = it->msg.find_first_of(">\"", pos1 + 1U);
+            if (pos1 < pos2 && pos2 != std::string::npos)
+                missingInclude(it->location.file(), it->location.line, it->msg.substr(pos1+1, pos2-pos1-1), it->msg[pos1] == '\"' ? UserHeader : SystemHeader);
         }
+        break;
+        };
     }
 
     return getcode(tokens1, cfg, files, filedata.find("#file") != std::string::npos);
@@ -660,35 +660,6 @@ void Preprocessor::error(const std::string &filename, unsigned int linenr, const
                             "preprocessorErrorDirective",
                             false));
 }
-
-Preprocessor::HeaderTypes Preprocessor::getHeaderFileName(std::string &str)
-{
-    std::string::size_type i = str.find_first_of("<\"");
-    if (i == std::string::npos) {
-        str = "";
-        return NoHeader;
-    }
-
-    char c = str[i];
-    if (c == '<')
-        c = '>';
-
-    std::string result;
-    for (i = i + 1; i < str.length(); ++i) {
-        if (str[i] == c)
-            break;
-
-        result.append(1, str[i]);
-    }
-
-    // Linux can't open include paths with \ separator, so fix them
-    std::replace(result.begin(), result.end(), '\\', '/');
-
-    str = result;
-
-    return (c == '\"') ? UserHeader : SystemHeader;
-}
-
 
 // Report that include is missing
 void Preprocessor::missingInclude(const std::string &filename, unsigned int linenr, const std::string &header, HeaderTypes headerType)

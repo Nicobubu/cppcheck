@@ -1,38 +1,31 @@
+
 th {
-  background-color: #555;
-  border: 1px solid #555;
-  color: white;
-  font-size: 80%;
-  padding: 3px;
-  text-align: left;
-  vertical-align: top;
+  font-size:80%;
+  color:#ffffff;
+  background-color:#555555;
+  border:1px solid #555555;
+  padding:3px;
+  vertical-align:top;
+  text-align:left;
 }
 
 td {
-  border: 1px solid #d4d4d4;
-  font-size: 80%;
-  padding: 7px 5px;
-  vertical-align: top;
+  font-size:80%;
+  border:1px solid #d4d4d4;
+  padding:5px;
+  padding-top:7px;
+  padding-bottom:7px;
+  vertical-align:top;
 }
 
 .code {
-  background-color: lightgray;
-  border: 1px solid gray;
-  font-family: courier;
+  font-family:courier;
+  background-color:lightgray;
+  border:1px solid gray;
 }
 
-.tp {
-  color: red;
-}
+.tp        { color:red; }
+.fp        { color:green; }
+.notfound  { color:blue; }
+.untriaged { color:black; }
 
-.fp {
-  color: green;
-}
-
-.notfound {
-  color: blue;
-}
-
-.untriaged {
-  color: black;
-}

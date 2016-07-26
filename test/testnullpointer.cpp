@@ -1538,6 +1538,9 @@ private:
               "}");
         ASSERT_EQUALS("", errout.str());
 
+        // #2582 - segmentation fault
+        check("if()");
+
         // #2674 - different functions
         check("class Fred {\n"
               "public:\n"

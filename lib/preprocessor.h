@@ -48,7 +48,7 @@ public:
     std::string file;
 
     /** line number in (possibly included) file where directive is defined */
-    unsigned int linenr;
+    int linenr;
 
     /** the actual directive text */
     std::string str;
@@ -88,15 +88,9 @@ public:
 
     void inlineSuppressions(const simplecpp::TokenList &tokens);
 
-    void setDirectives(const simplecpp::TokenList &tokens);
-
     std::set<std::string> getConfigs(const simplecpp::TokenList &tokens) const;
 
     void loadFiles(const simplecpp::TokenList &rawtokens, std::vector<std::string> &files);
-
-    void removeComments();
-
-    void setPlatformInfo(simplecpp::TokenList *tokens) const;
 
     /**
      * Extract the code for each configuration
@@ -165,6 +159,28 @@ public:
      */
     static void writeError(const std::string &fileName, const unsigned int linenr, ErrorLogger *errorLogger, const std::string &errorType, const std::string &errorText);
 
+    /**
+     * Remove redundant parentheses from preprocessor commands. This should only be called from read().
+     * @param str Code processed by read().
+     * @return code with reduced parentheses
+     */
+    static std::string removeParentheses(const std::string &str);
+
+    /**
+     * clean up #-preprocessor lines (only)
+     * @param processedFile The data to be processed
+     */
+    static std::string preprocessCleanupDirectives(const std::string &processedFile);
+
+    /**
+     * Returns the string between double quote characters or \< \> characters.
+     * @param str e.g. \code#include "menu.h"\endcode or \code#include <menu.h>\endcode
+     * After function call it will contain e.g. "menu.h" without double quotes.
+     * @return NoHeader empty string if double quotes or \< \> were not found.
+     *         UserHeader if file surrounded with "" was found
+     *         SystemHeader if file surrounded with \<\> was found
+     */
+    static Preprocessor::HeaderTypes getHeaderFileName(std::string &str);
 private:
 
     /**
@@ -174,6 +190,8 @@ private:
      * @return The string where space characters have been removed.
      */
     static std::string removeSpaceNearNL(const std::string &str);
+
+    static std::string getdef(std::string line, bool def);
 
 public:
 

@@ -2191,7 +2191,7 @@ const Token *Type::initBaseInfo(const Token *tok, const Token *tok1)
 const std::string& Type::name() const
 {
     const Token* next = classDef->next();
-    if (classScope && classScope->enumClass && isEnumType())
+    if (isEnumType() && classScope && classScope->enumClass)
         return next->strAt(1);
     else if (next->isName())
         return next->str();
@@ -3495,11 +3495,11 @@ const Type* SymbolDatabase::findVariableType(const Scope *start, const Token *ty
         }
 
         // type has a namespace
-        else if (type->enclosingScope) {
+        else {
             bool match = true;
             const Scope *scope = type->enclosingScope;
             const Token *typeTok2 = typeTok->tokAt(-2);
-            do {
+            while (match && scope && Token::Match(typeTok2, "%any% ::")) {
                 // A::B..
                 if (typeTok2->isName() && typeTok2->str().find(":") == std::string::npos) {
                     match &= bool(scope->className == typeTok2->str());
@@ -3510,7 +3510,7 @@ const Type* SymbolDatabase::findVariableType(const Scope *start, const Token *ty
                     match &= bool(scope->type == Scope::eGlobal);
                     break;
                 }
-            } while (match && scope && Token::Match(typeTok2, "%any% ::"));
+            }
 
             if (match)
                 return &(*type);
@@ -4089,7 +4089,7 @@ unsigned int SymbolDatabase::sizeOfType(const Token *type) const
 {
     unsigned int size = _tokenizer->sizeOfType(type);
 
-    if (size == 0 && type->type() && type->type()->isEnumType() && type->type()->classScope) {
+    if (size == 0 && type->type() && type->type()->isEnumType()) {
         size = _settings->sizeof_int;
         const Token * enum_type = type->type()->classScope->enumType;
         if (enum_type)
@@ -4412,7 +4412,7 @@ void SymbolDatabase::setValueTypeInTokenList(Token *tokens, bool cpp, char defau
                 ValueType::Type type = ValueType::Type::INT;
                 if (MathLib::isIntHex(tok->str()))
                     sign = ValueType::Sign::UNSIGNED;
-                for (std::size_t pos = tok->str().size() - 1U; pos > 0U && std::isalpha(tok->str()[pos]); --pos) {
+                for (unsigned int pos = tok->str().size() - 1U; pos > 0U && std::isalpha(tok->str()[pos]); --pos) {
                     const char suffix = tok->str()[pos];
                     if (suffix == 'u' || suffix == 'U')
                         sign = ValueType::Sign::UNSIGNED;

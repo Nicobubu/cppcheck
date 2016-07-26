@@ -106,33 +106,21 @@ unsigned int CppCheck::processFile(const std::string& filename, std::istream& fi
 
         simplecpp::OutputList outputList;
         std::vector<std::string> files;
-        simplecpp::TokenList tokens1(fileStream, files, filename, &outputList);
-        preprocessor.loadFiles(tokens1, files);
-
-        // Parse comments and then remove them
-        preprocessor.inlineSuppressions(tokens1);
-        tokens1.removeComments();
-        preprocessor.removeComments();
-
-        // Get directives
-        preprocessor.setDirectives(tokens1);
-
-        preprocessor.setPlatformInfo(&tokens1);
+        const simplecpp::TokenList tokens1(fileStream, files, filename, &outputList);
 
         // Get configurations..
         if (_settings.userDefines.empty() || _settings.force) {
             Timer t("Preprocessor::getConfigs", _settings.showtime, &S_timerResults);
+            preprocessor.loadFiles(tokens1, files);
             configurations = preprocessor.getConfigs(tokens1);
         } else {
             configurations.insert(_settings.userDefines);
+            preprocessor.loadFiles(tokens1, files);
         }
 
         preprocessor.inlineSuppressions(tokens1);
 
         if (_settings.checkConfiguration) {
-            for (std::set<std::string>::const_iterator it = configurations.begin(); it != configurations.end(); ++it)
-                (void)preprocessor.getcode(tokens1, *it, files, true);
-
             return 0;
         }
 
@@ -160,7 +148,7 @@ unsigned int CppCheck::processFile(const std::string& filename, std::istream& fi
                     continue;
 
                 const std::string code = "#line " +
-                                         MathLib::toString(tok->location.line) +
+                                         std::to_string(tok->location.line) +
                                          '\"' + tok->location.file() + "\'\n" +
                                          directive;
 

@@ -3410,7 +3410,7 @@ private:
         ASSERT_EQUALS("", errout.str());
 
         // make sure there are not "same expression" fp when there are different ({}) expressions
-        check("void f(long x) { if (({ 1+2; }) == ({3+4;})) {} }");
+        check("void f(long x) { if (({ 1+2; }) == ({3+4};)) {} }");
         ASSERT_EQUALS("", errout.str());
 
         // #5535: Reference named like its type
@@ -4576,21 +4576,6 @@ private:
               "    i[2] = 1;\n"
               "}", nullptr, false, false, false);
         ASSERT_EQUALS("[test.cpp:3] -> [test.cpp:4]: (style) Variable 'i[2]' is reassigned a value before the old one has been used.\n", errout.str());
-
-        check("void f(int x) {\n"
-              "    int i[10];\n"
-              "    i[x] = 1;\n"
-              "    x=1;\n"
-              "    i[x] = 1;\n"
-              "}", nullptr, false, false, false);
-        ASSERT_EQUALS("", errout.str());
-
-        check("void f(const int x) {\n"
-              "    int i[10];\n"
-              "    i[x] = 1;\n"
-              "    i[x] = 1;\n"
-              "}", nullptr, false, false, false);
-        ASSERT_EQUALS("[test.cpp:3] -> [test.cpp:4]: (style) Variable 'i[x]' is reassigned a value before the old one has been used.\n", errout.str());
 
         // Testing different types
         check("void f() {\n"

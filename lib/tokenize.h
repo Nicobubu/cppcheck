@@ -74,7 +74,8 @@ public:
     bool createTokens(std::istream &code,
                       const std::string& FileName);
 
-    bool simplifyTokens1(const std::string &configuration);
+    bool simplifyTokens1(const std::string &configuration,
+                         bool noSymbolDB_AST = false);
     /**
      * Tokenize code
      * @param code input stream for code, e.g.
@@ -99,7 +100,14 @@ public:
      */
     bool tokenize(std::istream &code,
                   const char FileName[],
-                  const std::string &configuration = emptyString);
+                  const std::string &configuration = emptyString,
+                  bool noSymbolDB_AST = false);
+    /**
+     * tokenize condition and run simple simplifications on it
+     * @param code code
+     * @return true if success.
+     */
+    bool tokenizeCondition(const std::string &code);
 
     /** Set variable id */
     void setVarId();
@@ -468,6 +476,10 @@ public:
 
     void combineStrings();
 
+    void concatenateDoubleSharp();
+
+    void simplifyFileAndLineMacro();
+
     void simplifyNull();
 
     void concatenateNegativeNumberAndAnyPositive();
@@ -579,12 +591,6 @@ private:
      * to catch problems in simplifyTokenList1/2.
      */
     void validate() const;
-
-    /** Detect garbage code */
-    const Token * findGarbageCode() const;
-
-    /** Detect garbage expression */
-    bool isGarbageExpr(const Token *start, const Token *end) const;
 
     /**
      * Remove __declspec()

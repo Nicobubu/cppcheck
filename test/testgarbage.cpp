@@ -246,7 +246,7 @@ private:
         // run alternate check first. It should only ensure stability - so we catch exceptions here.
         try {
             checkCodeInternal(code, alternatefilename);
-        } catch (const InternalError&) {
+        } catch (InternalError&) {
         }
 
         return checkCodeInternal(code, filename);
@@ -451,7 +451,7 @@ private:
     }
 
     void garbageCode15() { // Ticket #5203
-        ASSERT_THROW(checkCode("int f ( int* r ) { {  int s[2] ; f ( s ) ; if ( ) } }"), InternalError);
+        checkCode("int f ( int* r ) { {  int s[2] ; f ( s ) ; if ( ) } }");
     }
 
     void garbageCode16() {
@@ -480,13 +480,13 @@ private:
 
     void garbageCode21() {
         // Ticket #3486 - Don't crash garbage code
-        ASSERT_THROW(checkCode("void f()\n"
-                               "{\n"
-                               "  (\n"
-                               "    x;\n"
-                               "    int a, a2, a2*x; if () ;\n"
-                               "  )\n"
-                               "}"), InternalError);
+        checkCode("void f()\n"
+                  "{\n"
+                  "  (\n"
+                  "    x;\n"
+                  "    int a, a2, a2*x; if () ;\n"
+                  "  )\n"
+                  "}");
     }
 
     void garbageCode22() {
@@ -765,7 +765,7 @@ private:
     }
 
     void garbageCode76() { // #6754
-        ASSERT_THROW(checkCode(" ( ) ( ) { ( ) [ ] } TEST ( ) { ( _broadcast_f32x4 ) ( ) ( ) ( ) ( ) if ( ) ( ) ; } E mask = ( ) [ ] ( ) res1.x ="), InternalError);
+        checkCode(" ( ) ( ) { ( ) [ ] } TEST ( ) { ( _broadcast_f32x4 ) ( ) ( ) ( ) ( ) if ( ) ( ) ; } E mask = ( ) [ ] ( ) res1.x =");
     }
 
     void garbageCode77() { // #6755
@@ -1228,7 +1228,7 @@ private:
     }
 
     void garbageCode151() { // #4175
-        ASSERT_THROW(checkCode(">{ x while (y) z int = }"), InternalError);
+        checkCode(">{ x while (y) z int = }");
         checkCode("void f() {\n" // #4911 - bad simplification => don't crash
                   "    int a;\n"
                   "    do { a=do_something() } while (a);\n"
@@ -1316,9 +1316,9 @@ private:
     void garbageAST() {
         checkCode("--"); // don't crash
 
-        ASSERT_THROW(checkCode("N 1024 float a[N], b[N + 3], c[N]; void N; (void) i;\n"
-                               "int #define for (i = avx_test i < c[i]; i++)\n"
-                               "b[i + 3] = a[i] * {}"), InternalError); // Don't hang (#5787)
+        checkCode("N 1024 float a[N], b[N + 3], c[N]; void N; (void) i;\n"
+                  "int #define for (i = avx_test i < c[i]; i++)\n"
+                  "b[i + 3] = a[i] * {}"); // Don't hang (#5787)
 
         checkCode("START_SECTION([EXTRA](bool isValid(const String &filename)))"); // Don't crash (#5991)
     }

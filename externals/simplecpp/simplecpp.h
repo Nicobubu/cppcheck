@@ -28,10 +28,7 @@
 #include <vector>
 
 <<<<<<< HEAD
-<<<<<<< HEAD
 =======
-=======
->>>>>>> upstream/master
 
 #ifdef _WIN32
 #  ifdef SIMPLECPP_EXPORT
@@ -46,10 +43,7 @@
 #endif
 
 
-<<<<<<< HEAD
 >>>>>>> 9082c097c84e895861728a18a80b9dfcf2e56f3a
-=======
->>>>>>> upstream/master
 namespace simplecpp {
 
 typedef std::string TokenString;
@@ -58,14 +52,10 @@ typedef std::string TokenString;
  * Location in source code
  */
 <<<<<<< HEAD
-<<<<<<< HEAD
 class Location {
 =======
 class SIMPLECPP_LIB Location {
 >>>>>>> 9082c097c84e895861728a18a80b9dfcf2e56f3a
-=======
-class SIMPLECPP_LIB Location {
->>>>>>> upstream/master
 public:
     Location(const std::vector<std::string> &f) : files(f), fileIndex(0), line(1U), col(0U) {}
 
@@ -108,36 +98,26 @@ public:
  * @todo don't use std::string representation - for both memory and performance reasons
  */
 <<<<<<< HEAD
-<<<<<<< HEAD
 class Token {
 public:
     Token(const TokenString &s, const Location &loc) :
         str(string), location(loc), previous(nullptr), next(nullptr), string(s)
 =======
-=======
->>>>>>> upstream/master
 class SIMPLECPP_LIB Token {
 public:
     Token(const TokenString &s, const Location &loc) :
         str(string), location(loc), previous(NULL), next(NULL), string(s)
-<<<<<<< HEAD
 >>>>>>> 9082c097c84e895861728a18a80b9dfcf2e56f3a
-=======
->>>>>>> upstream/master
     {
         flags();
     }
 
     Token(const Token &tok) :
 <<<<<<< HEAD
-<<<<<<< HEAD
         str(string), macro(tok.macro), location(tok.location), previous(nullptr), next(nullptr), string(tok.str)
 =======
         str(string), macro(tok.macro), location(tok.location), previous(NULL), next(NULL), string(tok.str)
 >>>>>>> 9082c097c84e895861728a18a80b9dfcf2e56f3a
-=======
-        str(string), macro(tok.macro), location(tok.location), previous(NULL), next(NULL), string(tok.str)
->>>>>>> upstream/master
     {
         flags();
     }
@@ -168,10 +148,7 @@ public:
     Token *previous;
     Token *next;
 <<<<<<< HEAD
-<<<<<<< HEAD
 =======
-=======
->>>>>>> upstream/master
 
     const Token *previousSkipComments() const {
         const Token *tok = this->previous;
@@ -189,16 +166,12 @@ public:
 
     void printAll() const;
     void printOut() const;
-<<<<<<< HEAD
 >>>>>>> 9082c097c84e895861728a18a80b9dfcf2e56f3a
-=======
->>>>>>> upstream/master
 private:
     TokenString string;
 };
 
 /** Output from preprocessor */
-<<<<<<< HEAD
 <<<<<<< HEAD
 struct Output {
     Output(const std::vector<std::string> &files) : type(ERROR), location(files) {}
@@ -206,18 +179,13 @@ struct Output {
         ERROR, /* error */
         WARNING /* warning */
 =======
-=======
->>>>>>> upstream/master
 struct SIMPLECPP_LIB Output {
     Output(const std::vector<std::string> &files) : type(ERROR), location(files) {}
     enum Type {
         ERROR, /* #error */
         WARNING, /* #warning */
         MISSING_INCLUDE
-<<<<<<< HEAD
 >>>>>>> 9082c097c84e895861728a18a80b9dfcf2e56f3a
-=======
->>>>>>> upstream/master
     } type;
     Location location;
     std::string msg;
@@ -227,14 +195,10 @@ typedef std::list<struct Output> OutputList;
 
 /** List of tokens. */
 <<<<<<< HEAD
-<<<<<<< HEAD
 class TokenList {
 =======
 class SIMPLECPP_LIB TokenList {
 >>>>>>> 9082c097c84e895861728a18a80b9dfcf2e56f3a
-=======
-class SIMPLECPP_LIB TokenList {
->>>>>>> upstream/master
 public:
     TokenList(std::vector<std::string> &filenames);
     TokenList(std::istream &istr, std::vector<std::string> &filenames, const std::string &filename=std::string(), OutputList *outputList = 0);
@@ -289,10 +253,7 @@ public:
     }
 
 <<<<<<< HEAD
-<<<<<<< HEAD
 =======
-=======
->>>>>>> upstream/master
     void takeTokens(TokenList &other) {
         if (!other.first)
             return;
@@ -306,10 +267,7 @@ public:
         other.first = other.last = NULL;
     }
 
-<<<<<<< HEAD
 >>>>>>> 9082c097c84e895861728a18a80b9dfcf2e56f3a
-=======
->>>>>>> upstream/master
     /** sizeof(T) */
     std::map<std::string, std::size_t> sizeOfType;
 
@@ -337,14 +295,10 @@ private:
 
 /** Tracking how macros are used */
 <<<<<<< HEAD
-<<<<<<< HEAD
 struct MacroUsage {
 =======
 struct SIMPLECPP_LIB MacroUsage {
 >>>>>>> 9082c097c84e895861728a18a80b9dfcf2e56f3a
-=======
-struct SIMPLECPP_LIB MacroUsage {
->>>>>>> upstream/master
     MacroUsage(const std::vector<std::string> &f) : macroLocation(f), useLocation(f) {}
     std::string macroName;
     Location    macroLocation;
@@ -352,28 +306,20 @@ struct SIMPLECPP_LIB MacroUsage {
 };
 
 <<<<<<< HEAD
-<<<<<<< HEAD
 struct DUI {
 =======
 struct SIMPLECPP_LIB DUI {
 >>>>>>> 9082c097c84e895861728a18a80b9dfcf2e56f3a
-=======
-struct SIMPLECPP_LIB DUI {
->>>>>>> upstream/master
     std::list<std::string> defines;
     std::set<std::string> undefined;
     std::list<std::string> includePaths;
 };
 
 <<<<<<< HEAD
-<<<<<<< HEAD
 std::map<std::string, TokenList*> load(const TokenList &rawtokens, std::vector<std::string> &filenames, const struct DUI &dui, OutputList *outputList = 0);
 =======
 SIMPLECPP_LIB std::map<std::string, TokenList*> load(const TokenList &rawtokens, std::vector<std::string> &filenames, const struct DUI &dui, OutputList *outputList = 0);
 >>>>>>> 9082c097c84e895861728a18a80b9dfcf2e56f3a
-=======
-SIMPLECPP_LIB std::map<std::string, TokenList*> load(const TokenList &rawtokens, std::vector<std::string> &filenames, const struct DUI &dui, OutputList *outputList = 0);
->>>>>>> upstream/master
 
 /**
  * Preprocess
@@ -390,14 +336,10 @@ SIMPLECPP_LIB std::map<std::string, TokenList*> load(const TokenList &rawtokens,
  * @todo simplify interface
  */
 <<<<<<< HEAD
-<<<<<<< HEAD
 TokenList preprocess(const TokenList &rawtokens, std::vector<std::string> &files, const std::map<std::string, TokenList*> &filedata, const struct DUI &dui, OutputList *outputList = 0, std::list<struct MacroUsage> *macroUsage = 0);
 =======
 SIMPLECPP_LIB void preprocess(TokenList &output, const TokenList &rawtokens, std::vector<std::string> &files, const std::map<std::string, TokenList*> &filedata, const struct DUI &dui, OutputList *outputList = 0, std::list<struct MacroUsage> *macroUsage = 0);
 >>>>>>> 9082c097c84e895861728a18a80b9dfcf2e56f3a
-=======
-SIMPLECPP_LIB void preprocess(TokenList &output, const TokenList &rawtokens, std::vector<std::string> &files, const std::map<std::string, TokenList*> &filedata, const struct DUI &dui, OutputList *outputList = 0, std::list<struct MacroUsage> *macroUsage = 0);
->>>>>>> upstream/master
 }
 
 #endif

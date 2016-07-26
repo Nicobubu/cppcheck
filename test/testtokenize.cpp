@@ -67,7 +67,6 @@ private:
         TEST_CASE(tokenize33);  // #5780 Various crashes on valid template code
 
         TEST_CASE(syntax_case_default);
-        TEST_CASE(simplifyFileAndLineMacro);  // tokenize "return - __LINE__;"
 
         TEST_CASE(foreach);     // #3690
 
@@ -102,16 +101,14 @@ private:
         TEST_CASE(ifAddBraces3);
         TEST_CASE(ifAddBraces4);
         TEST_CASE(ifAddBraces5);
-        TEST_CASE(ifAddBraces6);
         TEST_CASE(ifAddBraces7);
         TEST_CASE(ifAddBraces9);
         TEST_CASE(ifAddBraces10);
         TEST_CASE(ifAddBraces11);
         TEST_CASE(ifAddBraces12);
         TEST_CASE(ifAddBraces13);
-        TEST_CASE(ifAddBraces14); // #2610 - segfault: if()<{}
         TEST_CASE(ifAddBraces15); // #2616 - unknown macro before if
-        TEST_CASE(ifAddBraces16); // ticket # 2739 (segmentation fault)
+        TEST_CASE(ifAddBraces16);
         TEST_CASE(ifAddBraces17); // '} else' should be in the same line
         TEST_CASE(ifAddBraces18); // #3424 - if if { } else else
         TEST_CASE(ifAddBraces19); // #3928 - if for if else
@@ -202,13 +199,9 @@ private:
         TEST_CASE(file2);
         TEST_CASE(file3);
 
-        TEST_CASE(doublesharp);
-
         TEST_CASE(isZeroNumber);
         TEST_CASE(isOneNumber);
         TEST_CASE(isTwoNumber);
-
-        TEST_CASE(macrodoublesharp);
 
         TEST_CASE(simplifyFunctionParameters);
         TEST_CASE(simplifyFunctionParameters1); // #3721
@@ -836,11 +829,6 @@ private:
         ASSERT_EQUALS("", errout.str());
     }
 
-    void simplifyFileAndLineMacro() { // tokenize 'return - __LINE__' correctly
-        ASSERT_EQUALS("\"test.cpp\"", tokenizeAndStringify("__FILE__"));
-        ASSERT_EQUALS("return -1 ;", tokenizeAndStringify("return - __LINE__;"));
-    }
-
     void foreach () {
         // #3690,#5154
         const char code[] ="void f() { for each ( char c in MyString ) { Console::Write(c); } }";
@@ -1096,11 +1084,6 @@ private:
                       "}", tokenizeAndStringify(code, true));
     }
 
-    void ifAddBraces6() {
-        const char code[] = "if()";
-        ASSERT_EQUALS("if ( )", tokenizeAndStringify(code, true));
-    }
-
     void ifAddBraces7() {
         const char code[] = "void f()\n"
                             "{\n"
@@ -1163,20 +1146,13 @@ private:
         ASSERT_EQUALS(expected2, tokenizeAndStringify(code2, true));
     }
 
-    void ifAddBraces14() {
-        // ticket #2610 (segfault)
-        tokenizeAndStringify("if()<{}", false);
-    }
-
     void ifAddBraces15() {
         // ticket #2616 - unknown macro before if
-        ASSERT_EQUALS("{ A if ( x ) { y ( ) ; } }", tokenizeAndStringify("{A if(x)y();}", false));
+        // TODO: Move to TestGarbage
+        ASSERT_THROW(tokenizeAndStringify("{A if(x)y();}", false), InternalError);
     }
 
-    void ifAddBraces16() { // ticket # 2739 (segmentation fault)
-        tokenizeAndStringify("if()x");
-        ASSERT_EQUALS("", errout.str());
-
+    void ifAddBraces16() {
         // ticket #2873 - the fix is not needed anymore.
         {
             const char code[] = "void f() { "
@@ -2984,16 +2960,6 @@ private:
         tokenizer.tokenize(istr, "a.cpp");
 
         ASSERT_EQUALS(Path::toNativeSeparators("[c:\\a.h:1]"), tokenizer.list.fileLine(tokenizer.tokens()));
-    }
-
-    void doublesharp() {
-        const char code[] = "a##_##b TEST(var,val) var##_##val = val\n";
-        ASSERT_EQUALS("a_b TEST ( var , val ) var_val = val", tokenizeAndStringify(code));
-    }
-
-    void macrodoublesharp() {
-        const char code[] = "DBG(fmt,args...) printf(fmt, ## args)\n";
-        ASSERT_EQUALS("DBG ( fmt , args . . . ) printf ( fmt , ## args )", tokenizeAndStringify(code));
     }
 
     void simplifyFunctionParameters() {

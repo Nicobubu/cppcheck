@@ -8,8 +8,8 @@
 
 int main(int argc, char **argv)
 {
-    clockid_t my_clk_id = CLOCK_REALTIME;
+    clockid_t my_clk_id;
     struct timespec *my_tp;
 
-    return clock_gettime(my_clk_id, &my_tp);
+    return clock_gettime( my_clk_id, &my_tp);
 }

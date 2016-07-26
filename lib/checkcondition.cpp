@@ -281,7 +281,7 @@ void CheckCondition::comparison()
         return;
 
     for (const Token *tok = _tokenizer->tokens(); tok; tok = tok->next()) {
-        if (Token::Match(tok, "==|!=|>")) {
+        if (Token::Match(tok, "==|!=|>|>=|<|<=")) {
             const Token *expr1 = tok->astOperand1();
             const Token *expr2 = tok->astOperand2();
             if (!expr1 || !expr2)
@@ -301,14 +301,19 @@ void CheckCondition::comparison()
                 const MathLib::bigint num1 = *num;
                 if (num1 < 0)
                     continue;
-                if (Token::Match(tok, "==|!=")) {
+                if (Token::Match(tok, "==|!=|>=|<=")) {
                     if ((expr1->str() == "&" && (num1 & num2) != num2) ||
                         (expr1->str() == "|" && (num1 | num2) != num2)) {
                         const std::string& op(tok->str());
-                        comparisonError(expr1, expr1->str(), num1, op, num2, op=="==" ? false : true);
+                        comparisonError(expr1, expr1->str(), num1, op, num2, op!="!=" ? false : true);
                     }
                 } else if (Token::simpleMatch(tok, ">")) {
                     if ((expr1->str() == "&" && (num1 <= num2))) {
+                        const std::string& op(tok->str());
+                        comparisonError(expr1, expr1->str(), num1, op, num2, false);
+                    }
+                } else if (Token::simpleMatch(tok, "<")) {
+                    if ((expr1->str() == "|" && (num1 >= num2))) {
                         const std::string& op(tok->str());
                         comparisonError(expr1, expr1->str(), num1, op, num2, false);
                     }
@@ -568,25 +573,37 @@ static inline T getvalue(const int test, const T value1, const T value2)
     // 4 => return value2
     // 5 => return value that is larger than both value1 and value2
     switch (test) {
-    case 1:
-#if GCC_VERSION >= 40600
-        return std::numeric_limits<T>::lowest();
-#else
-        return std::numeric_limits<T>::min();
-#endif
+    case 1: {
+        const T ret = std::min(value1, value2);
+        if ((ret - (T)1) < ret)
+            return ret - (T)1;
+        else if ((ret / (T)2) < ret)
+            return ret / (T)2;
+        else if ((ret * (T)2) < ret)
+            return ret * (T)2;
+        return ret;
+    }
     case 2:
         return value1;
     case 3:
         return getvalue3<T>(value1, value2);
     case 4:
         return value2;
-    case 5:
-        return std::numeric_limits<T>::max();
+    case 5: {
+        const T ret = std::max(value1, value2);
+        if ((ret + (T)1) > ret)
+            return ret + (T)1;
+        else if ((ret / (T)2) > ret)
+            return ret / (T)2;
+        else if ((ret * (T)2) > ret)
+            return ret * (T)2;
+        return ret;
+    }
     };
     return 0;
 }
 
-static bool parseComparison(const Token *comp, bool *not1, std::string *op, std::string *value, const Token **expr, bool* inconclusive)
+static bool parseComparison(const Token *comp, bool *not1, std::string *op, std::string *value, const Token **expr)
 {
     *not1 = false;
     while (comp && comp->str() == "!") {
@@ -619,10 +636,8 @@ static bool parseComparison(const Token *comp, bool *not1, std::string *op, std:
         *expr = comp;
     }
 
-    *inconclusive = *inconclusive || ((*value)[0] == '\'' && !(*op == "!=" || *op == "=="));
-
     // Only float and int values are currently handled
-    if (!MathLib::isInt(*value) && !MathLib::isFloat(*value) && (*value)[0] != '\'')
+    if (!MathLib::isInt(*value) && !MathLib::isFloat(*value))
         return false;
 
     return true;
@@ -664,7 +679,7 @@ void CheckCondition::checkIncorrectLogicOperator()
                 isOppositeCond(true, _tokenizer->isCPP(), tok->astOperand1(), tok->astOperand2(), _settings->library.functionpure)) {
 
                 const bool alwaysTrue(tok->str() == "||");
-                incorrectLogicOperatorError(tok, tok->expressionString(), alwaysTrue, false);
+                incorrectLogicOperatorError(tok, tok->expressionString(), alwaysTrue);
                 continue;
             }
 
@@ -695,7 +710,7 @@ void CheckCondition::checkIncorrectLogicOperator()
                     const std::string cond1 = expr1 + " " + tok->str() + " (" + expr2 + " " + tok->astOperand2()->str() + " " + expr3 + ")";
                     const std::string cond2 = expr1 + " " + tok->str() + " " + expr3;
 
-                    redundantConditionError(tok, tok2->expressionString() + ". '" + cond1 + "' is equivalent to '" + cond2 + "'", false);
+                    redundantConditionError(tok, tok2->expressionString() + ". '" + cond1 + "' is equivalent to '" + cond2 + "'");
                     continue;
                 }
             }
@@ -708,23 +723,18 @@ void CheckCondition::checkIncorrectLogicOperator()
             // Comparison #2 (RHS)
             const Token *comp2 = tok->astOperand2();
 
-            bool inconclusive = false;
-
             // Parse LHS
             bool not1;
             std::string op1, value1;
             const Token *expr1;
-            if (!parseComparison(comp1, &not1, &op1, &value1, &expr1, &inconclusive))
+            if (!parseComparison(comp1, &not1, &op1, &value1, &expr1))
                 continue;
 
             // Parse RHS
             bool not2;
             std::string op2, value2;
             const Token *expr2;
-            if (!parseComparison(comp2, &not2, &op2, &value2, &expr2, &inconclusive))
-                continue;
-
-            if (inconclusive && !_settings->inconclusive)
+            if (!parseComparison(comp2, &not2, &op2, &value2, &expr2))
                 continue;
 
             if (isSameExpression(_tokenizer->isCPP(), true, comp1, comp2, _settings->library.functionpure))
@@ -789,40 +799,40 @@ void CheckCondition::checkIncorrectLogicOperator()
             const std::string cond2str = conditionString(not2, expr2, op2, value2);
             if (printWarning && (alwaysTrue || alwaysFalse)) {
                 const std::string text = cond1str + " " + tok->str() + " " + cond2str;
-                incorrectLogicOperatorError(tok, text, alwaysTrue, inconclusive);
+                incorrectLogicOperatorError(tok, text, alwaysTrue);
             } else if (printStyle && secondTrue) {
                 const std::string text = "If '" + cond1str + "', the comparison '" + cond2str +
                                          "' is always " + (secondTrue ? "true" : "false") + ".";
-                redundantConditionError(tok, text, inconclusive);
+                redundantConditionError(tok, text);
             } else if (printStyle && firstTrue) {
                 //const std::string text = "The comparison " + cond1str + " is always " +
                 //                         (firstTrue ? "true" : "false") + " when " +
                 //                         cond2str + ".";
                 const std::string text = "If '" + cond2str + "', the comparison '" + cond1str +
                                          "' is always " + (firstTrue ? "true" : "false") + ".";
-                redundantConditionError(tok, text, inconclusive);
+                redundantConditionError(tok, text);
             }
         }
     }
 }
 
-void CheckCondition::incorrectLogicOperatorError(const Token *tok, const std::string &condition, bool always, bool inconclusive)
+void CheckCondition::incorrectLogicOperatorError(const Token *tok, const std::string &condition, bool always)
 {
     if (always)
         reportError(tok, Severity::warning, "incorrectLogicOperator",
                     "Logical disjunction always evaluates to true: " + condition + ".\n"
                     "Logical disjunction always evaluates to true: " + condition + ". "
-                    "Are these conditions necessary? Did you intend to use && instead? Are the numbers correct? Are you comparing the correct variables?", CWE571, inconclusive);
+                    "Are these conditions necessary? Did you intend to use && instead? Are the numbers correct? Are you comparing the correct variables?", CWE571, false);
     else
         reportError(tok, Severity::warning, "incorrectLogicOperator",
                     "Logical conjunction always evaluates to false: " + condition + ".\n"
                     "Logical conjunction always evaluates to false: " + condition + ". "
-                    "Are these conditions necessary? Did you intend to use || instead? Are the numbers correct? Are you comparing the correct variables?", CWE570, inconclusive);
+                    "Are these conditions necessary? Did you intend to use || instead? Are the numbers correct? Are you comparing the correct variables?", CWE570, false);
 }
 
-void CheckCondition::redundantConditionError(const Token *tok, const std::string &text, bool inconclusive)
+void CheckCondition::redundantConditionError(const Token *tok, const std::string &text)
 {
-    reportError(tok, Severity::style, "redundantCondition", "Redundant condition: " + text, CWE398, inconclusive);
+    reportError(tok, Severity::style, "redundantCondition", "Redundant condition: " + text, CWE398, false);
 }
 
 //-----------------------------------------------------------------------------

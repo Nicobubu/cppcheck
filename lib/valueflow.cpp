@@ -575,58 +575,26 @@ static void setTokenValue(Token* tok, const ValueFlow::Value &value)
 
 
 // Handle various constants..
-static Token * valueFlowSetConstantValue(const Token *tok, const Settings *settings)
+static void valueFlowSetConstantValue(const Token *tok)
 {
     if ((tok->isNumber() && MathLib::isInt(tok->str())) || (tok->tokType() == Token::eChar)) {
         ValueFlow::Value value(MathLib::toLongNumber(tok->str()));
         value.setKnown();
         setTokenValue(const_cast<Token *>(tok), value);
-    } else if (tok->enumerator() && tok->enumerator()->value_known) {
+    }
+
+    if (tok->enumerator() && tok->enumerator()->value_known) {
         ValueFlow::Value value(tok->enumerator()->value);
         value.setKnown();
         setTokenValue(const_cast<Token *>(tok), value);
-    } else if (Token::simpleMatch(tok, "sizeof (") && tok->tokAt(2)) {
-        const Token *tok2 = tok->tokAt(2);
-        if (tok2->enumerator() && tok2->enumerator()->scope) {
-            long long size = settings->sizeof_int;
-            const Token * type = tok2->enumerator()->scope->enumType;
-            if (type) {
-                size = type->str() == "char" ? 1 :
-                       type->str() == "short" ? settings->sizeof_short :
-                       type->str() == "int" ? settings->sizeof_int :
-                       (type->str() == "long" && type->isLong()) ? settings->sizeof_long_long :
-                       type->str() == "long" ? settings->sizeof_long : 0;
-            }
-            ValueFlow::Value value(size);
-            value.setKnown();
-            setTokenValue(const_cast<Token *>(tok), value);
-            setTokenValue(const_cast<Token *>(tok->next()), value);
-        } else if (tok2->type() && tok2->type()->isEnumType()) {
-            long long size = settings->sizeof_int;
-            const Token * type = tok2->type()->classScope->enumType;
-            if (type) {
-                size = type->str() == "char" ? 1 :
-                       type->str() == "short" ? settings->sizeof_short :
-                       type->str() == "int" ? settings->sizeof_int :
-                       (type->str() == "long" && type->isLong()) ? settings->sizeof_long_long :
-                       type->str() == "long" ? settings->sizeof_long : 0;
-            }
-            ValueFlow::Value value(size);
-            value.setKnown();
-            setTokenValue(const_cast<Token *>(tok), value);
-            setTokenValue(const_cast<Token *>(tok->next()), value);
-        }
-        // skip over enum
-        tok = tok->linkAt(1);
     }
-    return tok->next();
 }
 
 
 static void valueFlowNumber(TokenList *tokenlist)
 {
-    for (Token *tok = tokenlist->front(); tok;) {
-        tok = valueFlowSetConstantValue(tok, tokenlist->getSettings());
+    for (Token *tok = tokenlist->front(); tok; tok = tok->next()) {
+        valueFlowSetConstantValue(tok);
     }
 
     if (tokenlist->isCPP()) {
@@ -1072,23 +1040,6 @@ static void valueFlowAST(Token *tok, unsigned int varid, const ValueFlow::Value 
     if (tok->varId() == varid)
         setTokenValue(tok, value);
     valueFlowAST(const_cast<Token*>(tok->astOperand1()), varid, value);
-    if (tok->str() == "&&" && tok->astOperand1() && tok->astOperand1()->getValue(0)) {
-        ProgramMemory pm;
-        pm.setValue(varid,value);
-        if (conditionIsFalse(tok->astOperand1(), pm))
-            return;
-    } else if (tok->str() == "||" && tok->astOperand1()) {
-        bool nonzero = false;
-        for (std::list<ValueFlow::Value>::const_iterator it = tok->astOperand1()->values.begin(); it != tok->astOperand1()->values.end(); ++it) {
-            nonzero |= (it->intvalue != 0);
-        }
-        if (!nonzero)
-            return;
-        ProgramMemory pm;
-        pm.setValue(varid,value);
-        if (conditionIsTrue(tok->astOperand1(), pm))
-            return;
-    }
     valueFlowAST(const_cast<Token*>(tok->astOperand2()), varid, value);
 }
 
@@ -1466,7 +1417,6 @@ static bool valueFlowForward(Token * const               startToken,
                         valueFlowAST(const_cast<Token*>(op2), varid, *it);
                 }
             }
-
             // Skip conditional expressions..
             while (tok2->astOperand1() || tok2->astOperand2()) {
                 if (tok2->astOperand2())
@@ -2430,12 +2380,12 @@ static void valueFlowFunctionReturn(TokenList *tokenlist, ErrorLogger *errorLogg
     }
 }
 
-const ValueFlow::Value *ValueFlow::valueFlowConstantFoldAST(const Token *expr, const Settings *settings)
+const ValueFlow::Value *ValueFlow::valueFlowConstantFoldAST(const Token *expr)
 {
     if (expr && expr->values.empty()) {
-        valueFlowConstantFoldAST(expr->astOperand1(), settings);
-        valueFlowConstantFoldAST(expr->astOperand2(), settings);
-        valueFlowSetConstantValue(expr, settings);
+        valueFlowConstantFoldAST(expr->astOperand1());
+        valueFlowConstantFoldAST(expr->astOperand2());
+        valueFlowSetConstantValue(expr);
     }
     return expr && expr->values.size() == 1U && expr->values.front().isKnown() ? &expr->values.front() : nullptr;
 }

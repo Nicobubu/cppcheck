@@ -75,7 +75,6 @@ private:
         TEST_CASE(noConstructor8); // ticket #4404
         TEST_CASE(noConstructor9); // ticket #4419
         TEST_CASE(noConstructor10); // ticket #6614
-        TEST_CASE(noConstructor11); // ticket #3552
 
         TEST_CASE(forwardDeclaration); // ticket #4290/#3190
 
@@ -559,12 +558,6 @@ private:
               "private:\n"
               "    wxTimer *WxTimer1;\n"
               "};\n");
-        ASSERT_EQUALS("", errout.str());
-    }
-
-    void noConstructor11() { // #3552
-        check("class Fred { int x; };\n"
-              "union U { int y; Fred fred; };");
         ASSERT_EQUALS("", errout.str());
     }
 

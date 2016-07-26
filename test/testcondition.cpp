@@ -84,11 +84,9 @@ private:
         TEST_CASE(checkInvalidTestForOverflow);
     }
 
-    void check(const char code[], const char* filename = "test.cpp", bool inconclusive = false) {
+    void check(const char code[], const char* filename = "test.cpp") {
         // Clear the error buffer..
         errout.str("");
-
-        settings0.inconclusive = inconclusive;
 
         CheckCondition checkCondition;
 
@@ -591,75 +589,6 @@ private:
               "  }\n"
               "}");
         ASSERT_EQUALS("", errout.str());
-
-        //Various bitmask comparison checks
-        //#7428 false negative: condition '(a&7)>7U' is always false
-        //#7522 false positive: condition '(X|7)>=6' is correct
-
-        check("void f() {\n"
-              "assert( (a & 0x07) == 8U );\n" // statement always false
-              "}");
-        ASSERT_EQUALS("[test.cpp:2]: (style) Expression '(X & 0x7) == 0x8' is always false.\n",
-                      errout.str());
-
-        check("void f() {\n"
-              "assert( (a & 0x07) == 7U );\n" // statement correct
-              "assert( (a & 0x07) == 6U );\n" // statement correct
-              "}");
-        ASSERT_EQUALS("", errout.str());
-
-        check("void f() {\n"
-              "assert( (a | 0x07) == 8U );\n" // statement always false
-              "}");
-        ASSERT_EQUALS("[test.cpp:2]: (style) Expression '(X | 0x7) == 0x8' is always false.\n",
-                      errout.str());
-
-        check("void f() {\n"
-              "assert( (a | 0x07) == 7U );\n" // statement correct
-              "assert( (a | 0x07) == 23U );\n" // statement correct
-              "}");
-        ASSERT_EQUALS("", errout.str());
-
-        check("void f() {\n"
-              "assert( (a & 0x07) != 8U );\n" // statement always true
-              "}");
-        ASSERT_EQUALS("[test.cpp:2]: (style) Expression '(X & 0x7) != 0x8' is always true.\n",
-                      errout.str());
-
-        check("void f() {\n"
-              "assert( (a & 0x07) != 7U );\n" // statement correct
-              "assert( (a & 0x07) != 0U );\n" // statement correct
-              "}");
-        ASSERT_EQUALS("", errout.str());
-
-        check("void f() {\n"
-              "assert( (a | 0x07) != 8U );\n" // statement always true
-              "}");
-        ASSERT_EQUALS("[test.cpp:2]: (style) Expression '(X | 0x7) != 0x8' is always true.\n",
-                      errout.str());
-
-        check("void f() {\n"
-              "assert( (a | 0x07) != 7U );\n" // statement correct
-              "}");
-        ASSERT_EQUALS("", errout.str());
-
-        //TRAC #7428 false negative: condition '(X&7)>7'  is always false
-        check("void f() {\n"
-              "assert( (a & 0x07) > 7U );\n" // statement always false
-              "}");
-        ASSERT_EQUALS("[test.cpp:2]: (style) Expression '(X & 0x7) > 0x7' is always false.\n",
-                      errout.str());
-
-        check("void f() {\n"
-              "assert( (a & 0x07) > 6U );\n" // statement correct
-              "}");
-        ASSERT_EQUALS("", errout.str());
-
-        //TRAC #7522 false positive: condition '(X|7)>=6' is correct (X can be negative)
-        check("void f() {\n"
-              "assert( (a | 0x07) >= 6U );\n" // statement correct (X can be negative)
-              "}");
-        ASSERT_EQUALS("",errout.str());
     }
 
 
@@ -1017,28 +946,13 @@ private:
     void incorrectLogicOperator6() { // char literals
         check("void f(char x) {\n"
               "  if (x == '1' || x == '2') {}\n"
-              "}", "test.cpp", true);
+              "}");
         ASSERT_EQUALS("", errout.str());
 
         check("void f(char x) {\n"
               "  if (x == '1' && x == '2') {}\n"
-              "}", "test.cpp", true);
-        ASSERT_EQUALS("[test.cpp:2]: (warning) Logical conjunction always evaluates to false: x == '1' && x == '2'.\n", errout.str());
-
-        check("int f(char c) {\n"
-              "  return (c >= 'a' && c <= 'z');\n"
-              "}", "test.cpp", true);
-        ASSERT_EQUALS("", errout.str());
-
-        check("int f(char c) {\n"
-              "  return (c <= 'a' && c >= 'z');\n"
-              "}", "test.cpp", true);
-        ASSERT_EQUALS("[test.cpp:2]: (warning, inconclusive) Logical conjunction always evaluates to false: c <= 'a' && c >= 'z'.\n", errout.str());
-
-        check("int f(char c) {\n"
-              "  return (c <= 'a' && c >= 'z');\n"
-              "}", "test.cpp", false);
-        ASSERT_EQUALS("", errout.str());
+              "}");
+        TODO_ASSERT_EQUALS("error", "", errout.str());
     }
 
     void incorrectLogicOperator7() { // opposite expressions
@@ -1720,6 +1634,29 @@ private:
               "  assert(x == 0);\n"
               "}");
         ASSERT_EQUALS("", errout.str());
+
+        //TRAC #7428 false negative: Statement is always false
+        check("void f() {\n"
+              "assert( (a & 0x07) == 8U );\n" // statement always false, because 7 == 8 is false
+              "assert( (a & 0x07) >  7U );\n" // statement always false, because 7 > 7 is false
+              "assert( (a | 0x07) <  7U );\n" // statement always false, because 7 < 7 is false
+              "assert( (a & 0x07) >  8U );\n" // statement always false, because 7 > 8 is false
+              "assert( (a | 0x07) <  6U );\n" // statement always false, because 7 < 6 is false
+              "assert( (a & 0x07) >= 7U );\n" // statement correct
+              "assert( (a | 0x07) <= 7U );\n" // statement correct
+              "assert( (a & 0x07) >= 8U );\n" // statement always false, because 7 >= 8 is false
+              "assert( (a | 0x07) <= 6U );\n" // statement always false, because 7 <= 6 is false
+              "assert( (a & 0x07) >  3U );\n" // statement correct
+              "assert( (a | 0x07) <  9U );\n" // statement correct
+              "}");
+        ASSERT_EQUALS("[test.cpp:2]: (style) Expression '(X & 0x7) == 0x8' is always false.\n"
+                      "[test.cpp:3]: (style) Expression '(X & 0x7) > 0x7' is always false.\n"
+                      "[test.cpp:4]: (style) Expression '(X | 0x7) < 0x7' is always false.\n"
+                      "[test.cpp:5]: (style) Expression '(X & 0x7) > 0x8' is always false.\n"
+                      "[test.cpp:6]: (style) Expression '(X | 0x7) < 0x6' is always false.\n"
+                      "[test.cpp:9]: (style) Expression '(X & 0x7) >= 0x8' is always false.\n"
+                      "[test.cpp:10]: (style) Expression '(X | 0x7) <= 0x6' is always false.\n",
+                      errout.str());
     }
 
     void checkInvalidTestForOverflow() {

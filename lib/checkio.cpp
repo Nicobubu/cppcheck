@@ -422,10 +422,10 @@ void CheckIO::invalidScanf()
 
 void CheckIO::invalidScanfError(const Token *tok)
 {
-    std::string fname = (tok ? tok->str() : std::string("scanf"));
+
     reportError(tok, Severity::warning,
-                "invalidscanf", fname + "() without field width limits can crash with huge input data.\n" +
-                fname + "() without field width limits can crash with huge input data. Add a field width "
+                "invalidscanf", "scanf without field width limits can crash with huge input data.\n"
+                "scanf without field width limits can crash with huge input data. Add a field width "
                 "specifier to fix this problem:\n"
                 "    %s => %20s\n"
                 "\n"
@@ -684,7 +684,7 @@ void CheckIO::checkFormatString(const Token * const tok,
                                     if (!width.empty()) {
                                         int numWidth = std::atoi(width.c_str());
                                         if (numWidth != (argInfo.variableInfo->dimension(0) - 1))
-                                            invalidScanfFormatWidthError(tok, numFormat, numWidth, argInfo.variableInfo, 's');
+                                            invalidScanfFormatWidthError(tok, numFormat, numWidth, argInfo.variableInfo);
                                     }
                                 }
                                 if (argListTok && argListTok->tokType() != Token::eString &&
@@ -703,13 +703,6 @@ void CheckIO::checkFormatString(const Token * const tok,
                                 done = true;
                                 break;
                             case 'c':
-                                if (argInfo.variableInfo && argInfo.isKnownType() && argInfo.variableInfo->isArray() && (argInfo.variableInfo->dimensions().size() == 1) && argInfo.variableInfo->dimensions()[0].known) {
-                                    if (!width.empty()) {
-                                        int numWidth = std::atoi(width.c_str());
-                                        if (numWidth > argInfo.variableInfo->dimension(0))
-                                            invalidScanfFormatWidthError(tok, numFormat, numWidth, argInfo.variableInfo, 'c');
-                                    }
-                                }
                                 if (scanf_s) {
                                     numSecure++;
                                     if (argListTok) {
@@ -1168,10 +1161,6 @@ void CheckIO::checkFormatString(const Token * const tok,
                                             if (!typesMatch(argInfo.typeToken->originalName(), "ssize_t"))
                                                 invalidPrintfArgTypeError_uint(tok, numFormat, specifier, &argInfo);
                                             break;
-                                        case 'L':
-                                            if (argInfo.typeToken->str() != "long" || !argInfo.typeToken->isLong())
-                                                invalidPrintfArgTypeError_sint(tok, numFormat, specifier, &argInfo);
-                                            break;
                                         default:
                                             if (!Token::Match(argInfo.typeToken, "bool|char|short|int"))
                                                 invalidPrintfArgTypeError_sint(tok, numFormat, specifier, &argInfo);
@@ -1232,10 +1221,6 @@ void CheckIO::checkFormatString(const Token * const tok,
                                                 if (argInfo.typeToken->str() != "int" || argInfo.typeToken->isLong())
                                                     invalidPrintfArgTypeError_uint(tok, numFormat, specifier, &argInfo);
                                             } else if (!typesMatch(argInfo.typeToken->originalName(), "size_t"))
-                                                invalidPrintfArgTypeError_uint(tok, numFormat, specifier, &argInfo);
-                                            break;
-                                        case 'L':
-                                            if (argInfo.typeToken->str() != "long" || !argInfo.typeToken->isLong())
                                                 invalidPrintfArgTypeError_uint(tok, numFormat, specifier, &argInfo);
                                             break;
                                         default:
@@ -1397,7 +1382,9 @@ CheckIO::ArgumentInfo::ArgumentInfo(const Token * tok, const Settings *settings,
                 tempToken->insertToken("a");
                 tempToken = tempToken->next();
             }
-            if (valuetype->type == ValueType::BOOL)
+            if (valuetype->pointer == 0U && valuetype->type <= ValueType::INT)
+                tempToken->str("int");
+            else if (valuetype->type == ValueType::BOOL)
                 tempToken->str("bool");
             else if (valuetype->type == ValueType::CHAR)
                 tempToken->str("char");
@@ -2031,7 +2018,7 @@ void CheckIO::invalidLengthModifierError(const Token* tok, unsigned int numForma
     reportError(tok, Severity::warning, "invalidLengthModifierError", errmsg.str());
 }
 
-void CheckIO::invalidScanfFormatWidthError(const Token* tok, unsigned int numFormat, int width, const Variable *var, char c)
+void CheckIO::invalidScanfFormatWidthError(const Token* tok, unsigned int numFormat, int width, const Variable *var)
 {
     MathLib::bigint arrlen = 0;
     std::string varname;
@@ -2050,7 +2037,7 @@ void CheckIO::invalidScanfFormatWidthError(const Token* tok, unsigned int numFor
         reportError(tok, Severity::warning, "invalidScanfFormatWidth_smaller", errmsg.str(), CWE(0U), true);
     } else {
         errmsg << "Width " << width << " given in format string (no. " << numFormat << ") is larger than destination buffer '"
-               << varname << "[" << arrlen << "]', use %" << (c == 'c' ? arrlen : (arrlen - 1)) << c << " to prevent overflowing it.";
+               << varname << "[" << arrlen << "]', use %" << (arrlen - 1) << "s to prevent overflowing it.";
         reportError(tok, Severity::error, "invalidScanfFormatWidth", errmsg.str(), CWE687, false);
     }
 }

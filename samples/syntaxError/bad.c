@@ -1,5 +1,5 @@
 int main()
 {
-#ifdef A
+#ifndef A
 }
 #endif

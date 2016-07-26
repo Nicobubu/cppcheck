@@ -26,9 +26,6 @@
 #ifdef __cplusplus
 #if (__GNUC__ <= 4 && __GNUC_MINOR__ < 6 && !defined(__clang__)) || (!defined(__GXX_EXPERIMENTAL_CXX0X__) && __cplusplus < 201103L)
 
-#include <string>
-#include <sstream>
-    
 // Null pointer literal
 // Source: SC22/WG21/N2431 = J16/07-0301
 // http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2007/n2431.pdf
@@ -61,24 +58,6 @@ private:
 #define static_assert(e, msg) \
  typedef char XXJOIN(assertion_failed_at_line_, __LINE__) [(e) ? 1 : -1]
 #endif // static_assert
-
-/**
- * Template permettant de convertir une donnée en chaîne de caractères.
- * @param[in] value Donnée à convertir.
- * @return La chaîne de caractères convertie.
- */
-namespace std
-{
-    template <typename T>
-    inline string to_string(T value)
-    { 
-        std::ostringstream os;
-        os << value;
-        return os.str();
-
-    }
-}
-
 
 #endif // __cplusplus < 201103L
 #endif // __cplusplus

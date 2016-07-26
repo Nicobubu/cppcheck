@@ -1417,7 +1417,7 @@ private:
                   "        ;\n"
                   "}");
 
-            ASSERT_EQUALS_MSG("[test.cpp:4]: (error) Dangerous comparison using operator< on iterator.\n", errout.str(), stlCont[i]);
+            ASSERT_EQUALS("[test.cpp:4]: (error) Dangerous comparison using operator< on iterator.\n", errout.str());
         }
 
         check("void f() {\n"
@@ -2885,7 +2885,8 @@ private:
               "    for(auto i = v.cbegin();\n"
               "        i != v.cend(); ++i) {}\n"
               "}", true);
-        ASSERT_EQUALS("[test.cpp:4]: (style, inconclusive) Reading from empty STL container 'v'\n", errout.str());
+        ASSERT_EQUALS("[test.cpp:3]: (style, inconclusive) Reading from empty STL container 'v'\n"
+                      "[test.cpp:4]: (style, inconclusive) Reading from empty STL container 'v'\n", errout.str());
 
         check("void f(std::set<int> v) {\n"
               "    v.clear();\n"
@@ -2960,15 +2961,6 @@ private:
               "    std::vector<int> vec;\n"
               "};", true);
         ASSERT_EQUALS("[test.cpp:6]: (style, inconclusive) Reading from empty STL container 'vec'\n", errout.str());
-
-        // #7560
-        check("std::vector<int> test;\n"
-              "std::vector<int>::iterator it;\n"
-              "void Reset() {\n"
-              "    test.clear();\n"
-              "    it = test.end();\n"
-              "}");
-        ASSERT_EQUALS("", errout.str());
     }
 };
 

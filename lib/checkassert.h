@@ -49,7 +49,7 @@ public:
     void assertWithSideEffects();
 
 protected:
-    void checkVariableAssignment(const Token* tmp, const Scope *assertionScope);
+    void checkVariableAssignment(const Token* tmp);
     static bool inSameScope(const Token* returnTok, const Token* assignTok);
 
 private:

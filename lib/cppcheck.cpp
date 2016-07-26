@@ -18,7 +18,6 @@
 #include "cppcheck.h"
 
 #include "preprocessor.h" // Preprocessor
-#include "simplecpp.h"
 #include "tokenize.h" // Tokenizer
 
 #include "check.h"
@@ -35,8 +34,6 @@
 #define PCRE_STATIC
 #include <pcre.h>
 #endif
-
-#include "cxx11emu.h"
 
 static const char Version[] = CPPCHECK_VERSION_STRING;
 static const char ExtraVersion[] = "";
@@ -102,32 +99,13 @@ unsigned int CppCheck::processFile(const std::string& filename, std::istream& fi
     bool internalErrorFound(false);
     try {
         Preprocessor preprocessor(_settings, this);
-        std::set<std::string> configurations;
+        std::list<std::string> configurations;
+        std::string filedata;
 
-        simplecpp::OutputList outputList;
-        std::vector<std::string> files;
-        simplecpp::TokenList tokens1(fileStream, files, filename, &outputList);
-        preprocessor.loadFiles(tokens1, files);
-
-        // Parse comments and then remove them
-        preprocessor.inlineSuppressions(tokens1);
-        tokens1.removeComments();
-        preprocessor.removeComments();
-
-        // Get directives
-        preprocessor.setDirectives(tokens1);
-
-        preprocessor.setPlatformInfo(&tokens1);
-
-        // Get configurations..
-        if (_settings.userDefines.empty() || _settings.force) {
-            Timer t("Preprocessor::getConfigs", _settings.showtime, &S_timerResults);
-            configurations = preprocessor.getConfigs(tokens1);
-        } else {
-            configurations.insert(_settings.userDefines);
+        {
+            Timer t("Preprocessor::preprocess", _settings.showtime, &S_timerResults);
+            preprocessor.preprocess(fileStream, filedata, configurations, filename, _settings.includePaths);
         }
-
-        preprocessor.inlineSuppressions(tokens1);
 
         if (_settings.checkConfiguration) {
             for (std::set<std::string>::const_iterator it = configurations.begin(); it != configurations.end(); ++it)
@@ -138,38 +116,29 @@ unsigned int CppCheck::processFile(const std::string& filename, std::istream& fi
 
         // Run define rules on raw code
         for (std::list<Settings::Rule>::const_iterator it = _settings.rules.begin(); it != _settings.rules.end(); ++it) {
-            if (it->tokenlist != "define")
-                continue;
-
-            for (const simplecpp::Token *tok = tokens1.cbegin(); tok; tok = tok->next) {
-                if (tok->op != '#')
-                    continue;
-                if (tok->previous && tok->previous->location.sameline(tok->location))
-                    continue;
-
-                std::string directive;
-                for (const simplecpp::Token *tok2 = tok; tok2 && tok->location.sameline(tok2->location); tok2 = tok2->next) {
-                    if (tok2->comment)
-                        continue;
-                    while (directive.size() < tok2->location.col)
-                        directive += ' ';
-                    directive += tok2->str;
-                }
-
-                if (directive.compare(0,8,"#define ") != 0)
-                    continue;
-
-                const std::string code = "#line " +
-                                         MathLib::toString(tok->location.line) +
-                                         '\"' + tok->location.file() + "\'\n" +
-                                         directive;
-
+            if (it->tokenlist == "define") {
                 Tokenizer tokenizer2(&_settings, this);
-                std::istringstream istr2(code);
-                tokenizer2.list.createTokens(istr2, tok->location.file());
-                executeRules("define", tokenizer2);
+                std::istringstream istr2(filedata);
+                tokenizer2.list.createTokens(istr2, filename);
+
+                for (const Token *tok = tokenizer2.list.front(); tok; tok = tok->next()) {
+                    if (tok->str() == "#define") {
+                        std::string code = std::string(tok->linenr()-1U, '\n');
+                        for (const Token *tok2 = tok; tok2 && tok2->linenr() == tok->linenr(); tok2 = tok2->next())
+                            code += " " + tok2->str();
+                        Tokenizer tokenizer3(&_settings, this);
+                        std::istringstream istr3(code);
+                        tokenizer3.list.createTokens(istr3, tokenizer2.list.file(tok));
+                        executeRules("define", tokenizer3);
+                    }
+                }
+                break;
             }
-            break;
+        }
+
+        if (!_settings.userDefines.empty() && _settings.maxConfigs==1U) {
+            configurations.clear();
+            configurations.push_back(_settings.userDefines);
         }
 
         if (!_settings.force && configurations.size() > _settings.maxConfigs) {
@@ -193,7 +162,7 @@ unsigned int CppCheck::processFile(const std::string& filename, std::istream& fi
 
         std::set<unsigned long long> checksums;
         unsigned int checkCount = 0;
-        for (std::set<std::string>::const_iterator it = configurations.begin(); it != configurations.end(); ++it) {
+        for (std::list<std::string>::const_iterator it = configurations.begin(); it != configurations.end(); ++it) {
             // bail out if terminated
             if (_settings.terminated())
                 break;
@@ -218,11 +187,10 @@ unsigned int CppCheck::processFile(const std::string& filename, std::istream& fi
                 cfg = _settings.userDefines + cfg;
             }
 
-            std::string codeWithoutCfg;
-            {
-                Timer t("Preprocessor::getcode", _settings.showtime, &S_timerResults);
-                codeWithoutCfg = preprocessor.getcode(tokens1, cfg, files, true);
-            }
+            Timer t("Preprocessor::getcode", _settings.showtime, &S_timerResults);
+            std::string codeWithoutCfg = preprocessor.getcode(filedata, cfg, filename);
+            t.Stop();
+
             codeWithoutCfg += _settings.append();
 
             if (_settings.preprocessOnly) {
@@ -332,8 +300,6 @@ unsigned int CppCheck::processFile(const std::string& filename, std::istream& fi
             fdump << "</dumps>" << std::endl;
 
     } catch (const std::runtime_error &e) {
-        internalError(filename, e.what());
-    } catch (const std::bad_alloc &e) {
         internalError(filename, e.what());
     } catch (const InternalError &e) {
         internalError(filename, e.errorMessage);
@@ -623,7 +589,7 @@ void CppCheck::reportErr(const ErrorLogger::ErrorMessage &msg)
             return;
     }
 
-    if (!_settings.nofail.isSuppressed(msg._id, file, line) && !_settings.nomsg.isSuppressed(msg._id, file, line))
+    if (!_settings.nofail.isSuppressed(msg._id, file, line))
         exitcode = 1;
 
     _errorList.push_back(errmsg);

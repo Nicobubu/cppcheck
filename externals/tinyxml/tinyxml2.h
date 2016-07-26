@@ -30,9 +30,6 @@ distribution.
 #   include <stdio.h>
 #   include <stdlib.h>
 #   include <string.h>
-#	if defined(__PS3__)
-#		include <stddef.h>
-#	endif
 #else
 #   include <cctype>
 #   include <climits>
@@ -488,6 +485,7 @@ public:
 // WARNING: must match XMLDocument::_errorNames[]
 enum XMLError {
     XML_SUCCESS = 0,
+    XML_NO_ERROR = 0,
     XML_NO_ATTRIBUTE,
     XML_WRONG_ATTRIBUTE_TYPE,
     XML_ERROR_FILE_NOT_FOUND,
@@ -895,6 +893,7 @@ private:
 */
 class TINYXML2_LIB XMLText : public XMLNode
 {
+    friend class XMLBase;
     friend class XMLDocument;
 public:
     virtual bool Accept( XMLVisitor* visitor ) const;
@@ -1143,6 +1142,7 @@ private:
 */
 class TINYXML2_LIB XMLElement : public XMLNode
 {
+    friend class XMLBase;
     friend class XMLDocument;
 public:
     /// Get the name of an element (which is the Value() of the node.)
@@ -1675,7 +1675,7 @@ public:
 
     /// Return true if there was an error parsing the document.
     bool Error() const {
-        return _errorID != XML_SUCCESS;
+        return _errorID != XML_NO_ERROR;
     }
     /// Return the errorID.
     XMLError  ErrorID() const {

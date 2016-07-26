@@ -362,9 +362,6 @@ private:
 
         // #3469
         ASSERT_EQUALS("; a = a + ( b = 1 ) ;", tok("; a += b = 1;"));
-
-        // #7571
-        ASSERT_EQUALS("; foo = foo + [ & ] ( ) { } ;", tok("; foo += [&]() {int i;};"));
     }
 
 
@@ -3258,12 +3255,9 @@ private:
         ASSERT_EQUALS("int f ( ) ;", tok("int __far __syscall f();", true));
         ASSERT_EQUALS("int f ( ) ;", tok("int __far __pascal f();", true));
         ASSERT_EQUALS("int f ( ) ;", tok("int __far __fortran f();", true));
-        ASSERT_EQUALS("int f ( ) ;", tok("int WINAPI f();", true, Settings::Win32A));
-        ASSERT_EQUALS("int f ( ) ;", tok("int APIENTRY f();", true, Settings::Win32A));
-        ASSERT_EQUALS("int f ( ) ;", tok("int CALLBACK f();", true, Settings::Win32A));
-
-        // don't simplify Microsoft defines in unix code (#7554)
-        ASSERT_EQUALS("enum E { CALLBACK } ;", tok("enum E { CALLBACK } ;", true, Settings::Unix32));
+        ASSERT_EQUALS("int f ( ) ;", tok("int WINAPI f();", true));
+        ASSERT_EQUALS("int f ( ) ;", tok("int APIENTRY f();", true));
+        ASSERT_EQUALS("int f ( ) ;", tok("int CALLBACK f();", true));
     }
 
     void simplifyFunctorCall() {

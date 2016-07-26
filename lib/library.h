@@ -64,54 +64,29 @@ public:
     /** this is primarily meant for unit tests. it only returns true/false */
     bool loadxmldata(const char xmldata[], std::size_t len);
 
-    struct AllocFunc {
-        int groupId;
-        int arg;
-    };
-
-    /** get allocation info for function */
-    const AllocFunc* alloc(const Token *tok) const;
-
-    /** get deallocation info for function */
-    const AllocFunc* dealloc(const Token *tok) const;
+    /** get allocation id for function by name (deprecated, use other alloc) */
+    int alloc(const char name[]) const {
+        return getid(_alloc, name);
+    }
 
     /** get allocation id for function */
-    int alloc(const Token *tok, int arg) const;
+    int alloc(const Token *tok) const;
 
     /** get deallocation id for function */
-    int dealloc(const Token *tok, int arg) const;
-
-    /** get allocation info for function by name (deprecated, use other alloc) */
-    const AllocFunc* alloc(const char name[]) const {
-        return getAllocDealloc(_alloc, name);
-    }
-
-    /** get deallocation info for function by name (deprecated, use other alloc) */
-    const AllocFunc* dealloc(const char name[]) const {
-        return getAllocDealloc(_dealloc, name);
-    }
-
-    /** get allocation id for function by name (deprecated, use other alloc) */
-    int allocId(const char name[]) const {
-        const AllocFunc* af = getAllocDealloc(_alloc, name);
-        return af ? af->groupId : 0;
-    }
+    int dealloc(const Token *tok) const;
 
     /** get deallocation id for function by name (deprecated, use other alloc) */
-    int deallocId(const char name[]) const {
-        const AllocFunc* af = getAllocDealloc(_dealloc, name);
-        return af ? af->groupId : 0;
+    int dealloc(const char name[]) const {
+        return getid(_dealloc, name);
     }
 
     /** set allocation id for function */
-    void setalloc(const std::string &functionname, int id, int arg) {
-        _alloc[functionname].groupId = id;
-        _alloc[functionname].arg = arg;
+    void setalloc(const std::string &functionname, int id) {
+        _alloc[functionname] = id;
     }
 
-    void setdealloc(const std::string &functionname, int id, int arg) {
-        _dealloc[functionname].groupId = id;
-        _dealloc[functionname].arg = arg;
+    void setdealloc(const std::string &functionname, int id) {
+        _dealloc[functionname] = id;
     }
 
     /** add noreturn function setting */
@@ -123,16 +98,10 @@ public:
     static bool ismemory(int id) {
         return ((id > 0) && ((id & 1) == 0));
     }
-    static bool ismemory(const AllocFunc* func) {
-        return ((func->groupId > 0) && ((func->groupId & 1) == 0));
-    }
 
     /** is allocation type resource? */
     static bool isresource(int id) {
         return ((id > 0) && ((id & 1) == 1));
-    }
-    static bool isresource(const AllocFunc* func) {
-        return ((func->groupId > 0) && ((func->groupId & 1) == 1));
     }
 
     bool formatstr_function(const std::string& funcname) const {
@@ -226,8 +195,7 @@ public:
             notnull(false),
             notuninit(false),
             formatstr(false),
-            strz(false),
-            optional(false) {
+            strz(false) {
         }
 
         bool         notbool;
@@ -235,7 +203,6 @@ public:
         bool         notuninit;
         bool         formatstr;
         bool         strz;
-        bool         optional;
         std::string  valid;
 
         class MinSize {
@@ -476,8 +443,8 @@ private:
     int allocid;
     std::set<std::string> _files;
     std::set<std::string> _useretval;
-    std::map<std::string, AllocFunc> _alloc; // allocation functions
-    std::map<std::string, AllocFunc> _dealloc; // deallocation functions
+    std::map<std::string, int> _alloc; // allocation functions
+    std::map<std::string, int> _dealloc; // deallocation functions
     std::map<std::string, bool> _noreturn; // is function noreturn?
     std::set<std::string> _ignorefunction; // ignore functions/macros from a library (gtk, qt etc)
     std::map<std::string, bool> _reporterrors;
@@ -495,9 +462,9 @@ private:
 
     const ArgumentChecks * getarg(const Token *ftok, int argnr) const;
 
-    static const AllocFunc* getAllocDealloc(const std::map<std::string, AllocFunc> &data, const std::string &name) {
-        const std::map<std::string, AllocFunc>::const_iterator it = data.find(name);
-        return (it == data.end()) ? nullptr : &it->second;
+    static int getid(const std::map<std::string,int> &data, const std::string &name) {
+        const std::map<std::string,int>::const_iterator it = data.find(name);
+        return (it == data.end()) ? 0 : it->second;
     }
 };
 

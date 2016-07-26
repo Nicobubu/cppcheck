@@ -30,8 +30,6 @@
 // Register this check class
 CheckUnusedFunctions CheckUnusedFunctions::instance;
 
-static const struct CWE CWE561(561U);   // Dead Code
-
 
 //---------------------------------------------------------------------------
 // FUNCTION USAGE - Check for unused functions etc
@@ -252,7 +250,7 @@ void CheckUnusedFunctions::unusedFunctionError(ErrorLogger * const errorLogger,
         locationList.push_back(fileLoc);
     }
 
-    const ErrorLogger::ErrorMessage errmsg(locationList, Severity::style, "The function '" + funcname + "' is never used.", "unusedFunction", CWE561, false);
+    const ErrorLogger::ErrorMessage errmsg(locationList, Severity::style, "The function '" + funcname + "' is never used.", "unusedFunction", false);
     if (errorLogger)
         errorLogger->reportErr(errmsg);
     else

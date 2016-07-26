@@ -136,17 +136,17 @@ Parameters: -l(line) (file)</source>
     <message>
         <location filename="libraryaddfunctiondialog.ui" line="23"/>
         <source>Add function</source>
-        <translation>Добавить функцию</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="libraryaddfunctiondialog.ui" line="34"/>
         <source>Function name(s)</source>
-        <translation>Имя(имена) функции</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="libraryaddfunctiondialog.ui" line="44"/>
         <source>Number of arguments</source>
-        <translation>Количество аргументов</translation>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -154,47 +154,47 @@ Parameters: -l(line) (file)</source>
     <message>
         <location filename="librarydialog.ui" line="14"/>
         <source>Library Editor</source>
-        <translation>Редактор библиотек</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="librarydialog.ui" line="22"/>
         <source>Open</source>
-        <translation>Открыть</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="librarydialog.ui" line="29"/>
         <source>Save</source>
-        <translation>Сохранить</translation>
+        <translation type="unfinished">Сохранить</translation>
     </message>
     <message>
         <location filename="librarydialog.ui" line="36"/>
         <source>Save as</source>
-        <translation>Сохранить как</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="librarydialog.ui" line="62"/>
         <source>Functions</source>
-        <translation>Функции</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="librarydialog.ui" line="71"/>
         <source>Sort</source>
-        <translation>Сортировать</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="librarydialog.ui" line="111"/>
         <source>Add</source>
-        <translation>Добавить</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="librarydialog.ui" line="131"/>
         <source>Filter:</source>
-        <translation>Фильтр:</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="librarydialog.ui" line="164"/>
         <source>Comments</source>
-        <translation>Комментарии</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="librarydialog.ui" line="204"/>
@@ -219,54 +219,54 @@ Parameters: -l(line) (file)</source>
     <message>
         <location filename="librarydialog.ui" line="232"/>
         <source>return value must be used</source>
-        <translation>должно быть использовано возвращаемое значение</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="librarydialog.ui" line="239"/>
         <source>ignore function in leaks checking</source>
-        <translation>пропускать функцию при проверке на утечки</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="librarydialog.ui" line="246"/>
         <source>Arguments</source>
-        <translation>Аргументы</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="librarydialog.ui" line="258"/>
         <source>Edit</source>
-        <translation>Изменить</translation>
+        <translation type="unfinished">Изменить</translation>
     </message>
     <message>
         <location filename="librarydialog.cpp" line="82"/>
         <location filename="librarydialog.cpp" line="140"/>
         <source>Library files (*.cfg)</source>
-        <translation>Файлы библиотек (*.cfg)</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="librarydialog.cpp" line="84"/>
         <source>Open library file</source>
-        <translation>Открыть файл библиотеки</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="librarydialog.cpp" line="110"/>
         <location filename="librarydialog.cpp" line="130"/>
         <source>Cppcheck</source>
-        <translation>Cppcheck</translation>
+        <translation type="unfinished">Cppcheck</translation>
     </message>
     <message>
         <location filename="librarydialog.cpp" line="111"/>
         <source>Can not open file %1.</source>
-        <translation>Невозможно открыть файл %1.</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="librarydialog.cpp" line="131"/>
         <source>Can not save file %1.</source>
-        <translation>Невозможно сохранить файл %1.</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="librarydialog.cpp" line="143"/>
         <source>Save the library as</source>
-        <translation>Сохранить библиотеку как</translation>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -274,7 +274,7 @@ Parameters: -l(line) (file)</source>
     <message>
         <location filename="libraryeditargdialog.ui" line="14"/>
         <source>Edit argument</source>
-        <translation>Редактировать аргумент</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="libraryeditargdialog.ui" line="20"/>
@@ -534,7 +534,7 @@ Parameters: -l(line) (file)</source>
     <message>
         <location filename="main.ui" line="296"/>
         <source>&amp;Recheck all files</source>
-        <translation>Заново проверить все файлы</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="main.ui" line="305"/>
@@ -715,47 +715,47 @@ Parameters: -l(line) (file)</source>
     <message>
         <location filename="main.ui" line="707"/>
         <source>&amp;Print...</source>
-        <translation>Печать...</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="main.ui" line="710"/>
         <source>Print the Current Report</source>
-        <translation>Напечатать текущий отчет</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="main.ui" line="715"/>
         <source>Print Pre&amp;view...</source>
-        <translation>Предварительный просмотр...</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="main.ui" line="718"/>
         <source>Open a Print Preview Dialog for the Current Results</source>
-        <translation>Открыть диалог печати для текущих результатов</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="main.ui" line="723"/>
         <source>Library Editor...</source>
-        <translation>Редактор библиотек...</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="main.ui" line="726"/>
         <source>Open library editor</source>
-        <translation>Открыть редактор библиотек</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="main.ui" line="734"/>
         <source>Auto-detect language</source>
-        <translation>Автоопределение языка</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="main.ui" line="742"/>
         <source>Enforce C++</source>
-        <translation>Принудительно C++</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="main.ui" line="750"/>
         <source>Enforce C</source>
-        <translation>Принудительно C</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="main.ui" line="390"/>
@@ -770,7 +770,7 @@ Parameters: -l(line) (file)</source>
     <message>
         <location filename="main.ui" line="284"/>
         <source>&amp;Recheck modified files</source>
-        <translation>Заново проверить измененные файлы</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="main.ui" line="395"/>
@@ -923,39 +923,38 @@ Do you want to proceed checking without using any of these project files?</sourc
     <message>
         <location filename="mainwindow.cpp" line="607"/>
         <source>File not found</source>
-        <translation>Файл не найден</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="mainwindow.cpp" line="610"/>
         <source>Bad XML</source>
-        <translation>Некорректный XML</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="mainwindow.cpp" line="613"/>
         <source>Missing attribute</source>
-        <translation>Пропущен атрибут</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="mainwindow.cpp" line="616"/>
         <source>Bad attribute value</source>
-        <translation>Некорректное значение атрибута</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="mainwindow.cpp" line="619"/>
         <source>Unsupported format</source>
-        <translation>Неподдерживаемый формат</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="mainwindow.cpp" line="636"/>
         <source>Failed to load the selected library &apos;%1&apos;.
 %2</source>
-        <translation>Не удалось загрузить выбранную библиотеку &apos;%1&apos;.
-%2</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="mainwindow.cpp" line="717"/>
         <source>Failed to load %1. Your Cppcheck installation is broken. You can use --data-dir=&lt;directory&gt; at the command line to specify where this file is located.</source>
-        <translation>Не удалось загрузить %1. Установленный Cppcheck поврежден. Вы можете использовать ключ --data-dir=&lt;directory&gt; в командной строке, чтобы указать, где расположен этот файл.</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="mainwindow.cpp" line="1037"/>
@@ -1011,8 +1010,7 @@ This is probably because the settings were changed between the Cppcheck versions
         <location filename="mainwindow.cpp" line="598"/>
         <source>The library &apos;%1&apos; contains unknown elements:
 %2</source>
-        <translation>Библиотека &apos;%1&apos; содержит неизвестные элементы:
-%2</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="mainwindow.cpp" line="622"/>
@@ -1044,7 +1042,7 @@ This is probably because the settings were changed between the Cppcheck versions
         <source>Current results will be cleared.
 
 Opening a new XML file will clear current results.Do you want to proceed?</source>
-        <translation>Текущие результаты будут очищены.
+        <translation>Текущие результаты будут удалены.
 
 Открытые нового XML файла приведет к очистке текущих результатов. Продолжить?</translation>
     </message>
@@ -1259,7 +1257,7 @@ Options:
     <message>
         <location filename="projectfile.ui" line="42"/>
         <source>Defines must be separated by a semicolon &apos;;&apos;</source>
-        <translation>Defines должны быть разделены точкой с запятой &apos;;&apos;</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="projectfile.ui" line="53"/>
@@ -1269,12 +1267,12 @@ Options:
     <message>
         <location filename="projectfile.ui" line="70"/>
         <source>Libraries:</source>
-        <translation>Библиотеки:</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="projectfile.ui" line="79"/>
         <source>Note: Put your own custom .cfg files in the same folder as the project file. You should see them above.</source>
-        <translation>Note: Положите свои .cfg-файлы в одну директорию с файлом проекта. Вы увидите их сверху.</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="projectfile.ui" line="93"/>
@@ -1342,7 +1340,7 @@ Options:
     <message>
         <location filename="projectfile.ui" line="326"/>
         <source>Add</source>
-        <translation>Добавить</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="projectfile.ui" line="32"/>
@@ -1409,18 +1407,18 @@ Options:
 <context>
     <name>QObject</name>
     <message>
-        <location filename="translationhandler.cpp" line="103"/>
+        <location filename="translationhandler.cpp" line="100"/>
         <source>Unknown language specified!</source>
         <translation>Неизвестный язык!</translation>
     </message>
     <message>
-        <location filename="translationhandler.cpp" line="133"/>
+        <location filename="translationhandler.cpp" line="130"/>
         <source>Language file %1 not found!</source>
         <oldsource>Language file %1.qm not found!</oldsource>
         <translation>Языковой файл %1 не найден!</translation>
     </message>
     <message>
-        <location filename="translationhandler.cpp" line="139"/>
+        <location filename="translationhandler.cpp" line="136"/>
         <source>Failed to load translation for language %1 from file %2</source>
         <oldsource>Failed to load translation for language %1 from file %2.qm</oldsource>
         <translation>Ошибка загрузки переводов для языка %1 из файла %2</translation>
@@ -1489,7 +1487,7 @@ Options:
     <message>
         <location filename="resultstree.cpp" line="576"/>
         <source>Recheck</source>
-        <translation>Проверить заново</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="resultstree.cpp" line="577"/>
@@ -1524,7 +1522,7 @@ Options:
     <message>
         <location filename="resultstree.cpp" line="583"/>
         <source>Open containing folder</source>
-        <translation>Открыть содержащую папку</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="resultstree.cpp" line="643"/>
@@ -1584,7 +1582,7 @@ Please select the directory where file is located.</source>
     <message>
         <location filename="resultstree.cpp" line="1162"/>
         <source>Inconclusive</source>
-        <translation>Спорное</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="resultstree.cpp" line="278"/>
@@ -1622,12 +1620,12 @@ Please select the directory where file is located.</source>
     <message>
         <location filename="resultsview.cpp" line="187"/>
         <source>Print Report</source>
-        <translation>Распечатать отчет</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="resultsview.cpp" line="206"/>
         <source>No errors found, nothing to print.</source>
-        <translation>Ошибок не найдено, нечего распечатывать.</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="resultsview.cpp" line="244"/>
@@ -1776,17 +1774,17 @@ To toggle what kind of errors are shown, open view menu.</source>
     <message>
         <location filename="settings.ui" line="149"/>
         <source>Check for inconclusive errors also</source>
-        <translation>Показывать также спорные ошибки</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="settings.ui" line="156"/>
         <source>Show statistics on check completion</source>
-        <translation>Показывать статистику после завершения проверки</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="settings.ui" line="176"/>
         <source>Show internal warnings in log</source>
-        <translation>Показывать внутренние предупреждения в логе</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="settings.ui" line="184"/>
@@ -1872,7 +1870,7 @@ To toggle what kind of errors are shown, open view menu.</source>
     <message>
         <location filename="settingsdialog.cpp" line="243"/>
         <source> [Default]</source>
-        <translation> [По умолчанию]</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="settingsdialog.cpp" line="268"/>
@@ -2103,7 +2101,7 @@ To toggle what kind of errors are shown, open view menu.</source>
 <context>
     <name>TranslationHandler</name>
     <message>
-        <location filename="translationhandler.cpp" line="145"/>
+        <location filename="translationhandler.cpp" line="142"/>
         <source>Failed to change the user interface language:
 
 %1
@@ -2116,7 +2114,7 @@ The user interface language has been reset to English. Open the Preferences-dial
 Язык пользовательского интерфейса был сброшен на английский. Откройте Настройки-диалог для выбора любого из доступных языков.</translation>
     </message>
     <message>
-        <location filename="translationhandler.cpp" line="151"/>
+        <location filename="translationhandler.cpp" line="148"/>
         <source>Cppcheck</source>
         <translation>Cppcheck</translation>
     </message>
